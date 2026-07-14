@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Document Review</title>
+  <style>
+    :root {
+      --ink: #1a1a2e;
+      --ink-mid: #4a4a6a;
+      --ink-soft: #8888aa;
+      --paper: #f7f7fb;
+      --rule: #dddde8;
+      --accent: #3b5bdb;
+      --accent-dk: #2f4ac5;
+      --ok: #2f9e44;
+      --warn: #e67700;
+      --radius: 6px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 15px;
+      line-height: 1.55;
+      background: var(--paper);
+      color: var(--ink);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      border-bottom: 1px solid var(--rule);
+      padding: 14px 20px;
+      background: #fff;
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+    .eyebrow {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    header h1 { font-size: 15px; font-weight: 700; }
+    .progress-wrap {
+      background: #fff;
+      border-bottom: 1px solid var(--rule);
+      padding: 10px 20px;
+    }
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--ink-soft);
+      margin-bottom: 6px;
+    }
+    .progress-label strong { color: var(--ink-mid); }
+    .progress-track { height: 4px; background: var(--rule); border-radius: 2px; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.4s ease; }
+    main { flex: 1; max-width: 760px; width: 100%; margin: 0 auto; padding: 24px 20px 48px; }
+    .card { background: #fff; border: 1px solid var(--rule); border-radius: var(--radius); overflow: hidden; }
+    .card-task { padding: 16px 20px; border-bottom: 1px solid var(--rule); }
+    .task-label {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--ink-soft); margin-bottom: 8px;
+    }
+    .task-question { font-size: 18px; font-weight: 700; color: var(--ink); line-height: 1.35; }
+    .doc-meta { margin-top: 6px; font-size: 13px; color: var(--ink-soft); }
+    .doc-meta a { color: var(--accent); text-decoration: none; font-weight: 600; }
+    .doc-meta a:hover { text-decoration: underline; }
+    .page-wrap { background: #ececf3; padding: 16px; display: flex; justify-content: center; border-bottom: 1px solid var(--rule); }
+    .page-img {
+      max-width: 100%; height: auto; display: block;
+      background: #fff; border: 1px solid var(--rule);
+      box-shadow: 0 2px 10px rgba(26,26,46,0.10);
+    }
+    .page-skeleton {
+      width: 100%; max-width: 612px; aspect-ratio: 612 / 792;
+      background: linear-gradient(100deg, #e4e4ee 30%, #f0f0f6 50%, #e4e4ee 70%);
+      background-size: 200% 100%; animation: shimmer 1.3s linear infinite;
+      border: 1px solid var(--rule); border-radius: 2px;
+    }
+    @keyframes shimmer { to { background-position: -200% 0; } }
+    .card-form { padding: 18px 20px; display: grid; gap: 16px; }
+    label { display: block; font-size: 13px; font-weight: 600; color: var(--ink-mid); margin-bottom: 6px; }
+    textarea {
+      width: 100%; padding: 9px 12px; border: 1px solid var(--rule); border-radius: var(--radius);
+      font: inherit; font-size: 14px; color: var(--ink); background: #fff; resize: vertical;
+      transition: border-color 0.12s, box-shadow 0.12s;
+    }
+    textarea:focus {
+      outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,91,219,0.12);
+    }
+    #answer { min-height: 120px; }
+    #notes { min-height: 60px; }
+    .action-bar {
+      padding: 14px 20px; border-top: 1px solid var(--rule);
+      display: flex; gap: 10px; align-items: center;
+    }
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: var(--radius);
+      font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; border: none; transition: background 0.12s;
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-dk); }
+    .btn-skip { background: transparent; color: var(--ink-soft); border: 1px solid var(--rule); }
+    .btn-skip:hover:not(:disabled) { background: var(--rule); }
+    .remaining { margin-left: auto; font-size: 12px; color: var(--ink-soft); }
+    .state { text-align: center; padding: 60px 20px; }
+    .state-icon { font-size: 36px; margin-bottom: 12px; }
+    .state h2 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+    .state p { color: var(--ink-soft); font-size: 14px; }
+    .toast {
+      position: fixed; bottom: 24px; left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--ink); color: #fff; padding: 10px 20px; border-radius: 99px;
+      font-size: 13px; font-weight: 500; opacity: 0;
+      transition: transform 0.25s ease, opacity 0.25s ease; pointer-events: none;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    .toast.ok   { background: var(--ok); }
+    .toast.warn { background: var(--warn); }
+    .spinner {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff;
+      border-radius: 50%; animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) {
+      .spinner, .page-skeleton { animation: none; } .progress-fill { transition: none; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="eyebrow">Assignment</span>
+  <h1>Document Review</h1>
+</header>
+
+<div class="progress-wrap">
+  <div class="progress-label">
+    <span>Progress</span>
+    <span><strong id="done-count">0</strong> of <strong id="total-count">0</strong> pages reviewed</span>
+  </div>
+  <div class="progress-track">
+    <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+  </div>
+</div>
+
+<main id="main">
+  <div class="state"><div class="state-icon">⏳</div><h2>Loading…</h2></div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const DB = "assignments";
+// DocumentCloud serves each page as an image on this host (allow-listed in the
+// app's CSP img-src). Size options: small | normal | large | xlarge.
+const ASSET_HOST = "https://s3.documentcloud.org";
+const PAGE_SIZE = "large";
+
+let currentTask = null;
+let target = 3;        // answers wanted per page (from config)
+let totalCount = 0;    // total pages
+let doneCount = 0;     // pages that reached `target` answers
+let collected = 0;     // total answers collected
+let toastTimer;
+
+// Pages this browser session already answered or skipped, so the same person is
+// never shown the same page twice. Survives a refresh.
+const SEEN_KEY = "assignments_seen:" + location.pathname;
+let seen = loadSeen();
+function loadSeen() {
+  try { return new Set(JSON.parse(sessionStorage.getItem(SEEN_KEY) || "[]")); }
+  catch { return new Set(); }
+}
+function saveSeen() { try { sessionStorage.setItem(SEEN_KEY, JSON.stringify([...seen])); } catch {} }
+function markSeen(id) { seen.add(id); saveSeen(); }
+
+function $(id) { return document.getElementById(id); }
+
+function showToast(msg, type = "") {
+  const t = $("toast");
+  t.textContent = msg;
+  t.className = "toast show" + (type ? " " + type : "");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = "toast"; }, 2800);
+}
+
+function esc(str) {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function pageImageUrl(task) {
+  return `${ASSET_HOST}/documents/${task.doc_id}/pages/${task.slug}-p${task.page}-${PAGE_SIZE}.gif`;
+}
+function pageViewerUrl(task) {
+  // Canonical DocumentCloud viewer, opened at the relevant page in a new tab.
+  return `https://www.documentcloud.org/documents/${task.doc_id}-${task.slug}/#document/p${task.page}`;
+}
+
+async function loadProgress() {
+  const r = await datasette.query(DB,
+    `WITH n AS (SELECT CAST(value AS INTEGER) AS target FROM config WHERE key = 'responses_per_task'),
+          counts AS (
+            SELECT t.id, (SELECT COUNT(*) FROM responses r WHERE r.task_id = t.id) AS c
+            FROM tasks t
+          )
+     SELECT (SELECT target FROM n) AS target,
+            COUNT(*) AS total,
+            SUM(CASE WHEN c >= (SELECT target FROM n) THEN 1 ELSE 0 END) AS done,
+            COALESCE(SUM(c), 0) AS collected
+     FROM counts`);
+  const row = r.rows[0];
+  target     = row.target || 3;
+  totalCount = row.total || 0;
+  doneCount  = row.done  || 0;
+  collected  = row.collected || 0;
+
+  $("done-count").textContent  = doneCount;
+  $("total-count").textContent = totalCount;
+  const goal = totalCount * target;
+  const pct = goal > 0 ? Math.round((collected / goal) * 100) : 0;
+  $("progress-fill").style.width = pct + "%";
+}
+
+async function loadNextTask() {
+  $("main").innerHTML = `<div class="state"><div class="state-icon">⏳</div><h2>Loading next page…</h2></div>`;
+  const excludeClause = seen.size ? `AND t.id NOT IN (${[...seen].join(",")})` : "";
+  const r = await datasette.query(DB,
+    `SELECT t.id, t.doc_id, t.slug, t.title, t.page
+     FROM tasks t
+     WHERE (SELECT COUNT(*) FROM responses r WHERE r.task_id = t.id)
+           < (SELECT CAST(value AS INTEGER) FROM config WHERE key = 'responses_per_task')
+       ${excludeClause}
+     ORDER BY RANDOM()
+     LIMIT 1`);
+  if (!r.rows.length) {
+    const everythingDone = doneCount >= totalCount && totalCount > 0;
+    $("main").innerHTML = `
+      <div class="state">
+        <div class="state-icon">✅</div>
+        <h2>${everythingDone ? "All done!" : "You're all caught up"}</h2>
+        <p>${everythingDone
+            ? "Every page has collected enough reviews. Thank you for contributing."
+            : "You've reviewed every page still open right now. Check back later as others finish, or share the link with more people."}</p>
+      </div>`;
+    currentTask = null;
+    return;
+  }
+  currentTask = r.rows[0];
+  renderTask(currentTask);
+}
+
+function renderTask(task) {
+  const remaining = totalCount - doneCount;
+  $("main").innerHTML = `
+    <div class="card">
+      <div class="card-task">
+        <div class="task-label">Your task</div>
+        <div class="task-question">Read this page, then describe or transcribe what's on it.</div>
+        <div class="doc-meta">
+          ${esc(task.title || "Document")} · page ${task.page}
+          &nbsp;·&nbsp; <a href="${esc(pageViewerUrl(task))}" target="_blank" rel="noopener">open full page ↗</a>
+        </div>
+      </div>
+      <div class="page-wrap">
+        <div class="page-skeleton" id="page-skeleton"></div>
+        <img class="page-img" id="page-img" alt="Page ${task.page}" style="display:none"
+             src="${esc(pageImageUrl(task))}"
+             onload="this.style.display='block'; var s=document.getElementById('page-skeleton'); if(s) s.style.display='none';"
+             onerror="this.style.display='none'; var s=document.getElementById('page-skeleton'); if(s){ s.style.animation='none'; s.style.display='flex'; s.style.alignItems='center'; s.style.justifyContent='center'; s.textContent='Page image unavailable'; }">
+      </div>
+      <div class="card-form">
+        <div>
+          <label for="answer">What's on this page?</label>
+          <textarea id="answer" placeholder="Transcribe the text, or describe what this page contains…"></textarea>
+        </div>
+        <div>
+          <label for="notes">Notes <span style="font-weight:400;color:var(--ink-soft)">(optional)</span></label>
+          <textarea id="notes" placeholder="Anything uncertain, illegible, or worth flagging…"></textarea>
+        </div>
+      </div>
+      <div class="action-bar">
+        <button class="btn btn-primary" id="btn-submit" onclick="submitResponse()">Submit</button>
+        <button class="btn btn-skip" onclick="skipTask()">Skip</button>
+        <span class="remaining">${remaining} pages to go</span>
+      </div>
+    </div>`;
+  $("answer").focus();
+}
+
+async function submitResponse() {
+  if (!currentTask) return;
+  const answer = $("answer").value.trim();
+  if (!answer) { showToast("Please describe or transcribe the page", "warn"); $("answer").focus(); return; }
+  const notes = $("notes").value.trim();
+  const btn = $("btn-submit");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Saving…';
+  try {
+    await datasette.storedQuery(DB, "submit_response", {
+      task_id: currentTask.id,
+      answer,
+      notes: notes || null
+    });
+    markSeen(currentTask.id);
+    await loadProgress();
+    showToast("Saved!", "ok");
+    await loadNextTask();
+  } catch(e) {
+    btn.disabled = false;
+    btn.innerHTML = "Submit";
+    showToast("Save failed: " + (e.message || String(e)), "warn");
+  }
+}
+
+// Skip is client-side only: it moves this session past the page without
+// recording anything, so one person skipping never removes it for everyone.
+async function skipTask() {
+  if (!currentTask) return;
+  markSeen(currentTask.id);
+  showToast("Skipped");
+  await loadNextTask();
+}
+
+async function main() {
+  await loadProgress();
+  await loadNextTask();
+}
+main().catch(e => {
+  $("main").innerHTML = `<div class="state"><div class="state-icon">⚠️</div><h2>Error</h2><p>${e.message || String(e)}</p></div>`;
+});
+</script>
+</body>
+</html>

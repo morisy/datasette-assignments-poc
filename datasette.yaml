@@ -1,0 +1,41 @@
+databases:
+  assignments:
+    queries:
+      submit_response:
+        # Single statement only — the matching UPDATE that marks the task
+        # 'done' is handled by the mark_task_done trigger (see setup.py).
+        sql: |
+          INSERT INTO responses (task_id, answer, notes, submitted_at)
+          VALUES (:task_id, :answer, :notes, datetime('now'));
+        write: true
+        # `true` = everyone (anon contributors AND the signed-in admin).
+        # `{unauthenticated: true}` would match ONLY logged-out users and
+        # silently lock the admin out of running/testing the query.
+        allow: true
+
+# Instance-wide read + SQL access. Must be `true`, not `{unauthenticated: true}`:
+# an allow block lists who is allowed and DENIES everyone who doesn't match, so
+# `{unauthenticated: true}` locks out root (it only matches logged-out users) —
+# which makes the App builder report "No databases are visible to you."
+allow: true
+
+allow_sql: true
+
+# Let logged-out contributors open the published app. datasette-apps only
+# auto-grants "view-app" to an app's owner; for everyone else a non-private app
+# is merely *eligible* for a grant, so without this anonymous users get a 403 on
+# the app page. The plugin restricts this grant to non-private apps, so any app
+# you leave marked Private still stays owner-only.
+permissions:
+  view-app: true
+
+# Make DocumentCloud's page-image host available to apps. This only adds it to
+# the administrator-approved allow-list; each app must still opt in by listing
+# the origin in its "Allowed network and asset origins" field. The plugin maps
+# an allowed origin onto img-src / script-src-elem / style-src-elem / connect-src
+# — note there is no frame-src, so DocumentCloud can be shown as a page IMAGE
+# but cannot be embedded as an <iframe>.
+plugins:
+  datasette-apps:
+    allowed_csp_origins:
+      - https://s3.documentcloud.org
