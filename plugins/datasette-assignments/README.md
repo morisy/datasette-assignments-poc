@@ -61,6 +61,19 @@ Use this when: you want an open-ended feedback form, a tip intake, or any other 
 
 ---
 
+## Task variables
+
+In tasks mode, you can use `{{column_name}}` tokens in your question labels, help text, and block text to insert each task's values dynamically.
+
+For example, if your CSV has columns `city` and `state`, and the first row is `Boston,MA`, you can write a question label like "Find {{city}}'s public records page" and it will render as "Find Boston's public records page" for that task. Another task with `Chicago,IL` will show "Find Chicago's public records page."
+
+The builder detects your CSV columns and shows them as chips below the textarea, along with an example using the first column. Tokens are available in:
+- Question labels and help text
+- Header and paragraph block text
+- Task list mode only (form mode ignores tokens)
+
+---
+
 ## Routes
 
 | Route | Method | What it does |

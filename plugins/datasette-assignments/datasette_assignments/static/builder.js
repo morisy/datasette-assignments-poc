@@ -538,6 +538,7 @@
     var csvEl = document.getElementById("tasks-csv");
     var titleSel = document.getElementById("task-title-col");
     var imageSel = document.getElementById("task-image-col");
+    var csvDetected = document.getElementById("csv-detected");
     if (!csvEl) return;
 
     csvEl.addEventListener("input", function () {
@@ -552,12 +553,42 @@
           if (imageSel) {
             imageSel.innerHTML = '<option value="">(none)</option>';
           }
+          // Clear csv-detected div
+          if (csvDetected) {
+            csvDetected.innerHTML = "";
+          }
           notifyChanged();
           return;
         }
         var firstLine = val.split("\n")[0];
         var columns = firstLine.split(",").map(sanitizeColumnName).filter(function (c) { return c.length > 0; });
         populateColumnSelects(columns);
+
+        // Render detected columns into #csv-detected
+        if (csvDetected && columns.length > 0) {
+          var div = document.createElement("div");
+          var text1 = document.createTextNode("Detected columns: ");
+          div.appendChild(text1);
+
+          columns.forEach(function (col) {
+            var code = document.createElement("code");
+            code.textContent = col;
+            code.style.padding = "0.25em 0.5em";
+            code.style.marginRight = "0.25em";
+            code.style.backgroundColor = "#f5f5f5";
+            code.style.borderRadius = "3px";
+            code.style.fontFamily = "monospace";
+            code.style.fontSize = "0.9em";
+            div.appendChild(code);
+          });
+
+          var firstCol = columns.length > 0 ? columns[0] : "";
+          var text2 = document.createTextNode(" — first row is treated as headers. Use {{" + firstCol + "}} in your questions to insert each task's value.");
+          div.appendChild(text2);
+
+          csvDetected.innerHTML = "";
+          csvDetected.appendChild(div);
+        }
       }, 300);
     });
 

@@ -612,7 +612,7 @@ The census app is a working template. Here is how to swap in your own data and q
 
 **Checklist — four places that must all agree:**
 
-1. **Your CSV columns** (`cities.csv` or whatever you name it) — add or rename columns to match your task data. For example, add a `document_id` column for a document-review assignment.
+1. **Your CSV columns** (`cities.csv` or whatever you name it) — add or rename columns to match your task data. For example, add a `document_id` column for a document-review assignment. (In the no-code builder, you can use `{{column_name}}` tokens in your questions to insert each task's values dynamically.)
 
 2. **`scripts/setup_census.py` schema** — add matching columns to the `responses` table. Add `_missing` companions for any field where absence is meaningful. Update the `mark_task_done` trigger if the completion logic changes.
 
