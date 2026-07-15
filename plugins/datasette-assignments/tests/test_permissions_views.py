@@ -174,3 +174,52 @@ async def test_response_public_toggle_and_export(tmp_path):
                                 cookies=alice_c)
     assert csv_r.status_code == 200 and "records_page" in csv_r.text
     assert (await ds.client.get("/-/assignments/mayors/export.csv")).status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_mutation_endpoints_reject_non_owner_and_anon(tmp_path):
+    ds = await build_instance(tmp_path)  # creates 'mayors' owned by alice
+    # Insert a response for testing response-public endpoint
+    await ds.client.post("/assignments_data/submit_mayors.json?_json=1", json={
+        "task_id": 1, "records_page": "https://x.gov",
+        "records_page_missing": 0, "topics": "[]"})
+
+    bob = {"ds_actor": ds.client.actor_cookie({"id": "bob"})}
+
+    # Test toggle-status endpoint
+    # Anonymous
+    anon_toggle = await ds.client.post("/-/assignments/mayors/toggle-status", data={})
+    assert anon_toggle.status_code == 403
+    # Bob (non-owner)
+    bob_toggle = await ds.client.post("/-/assignments/mayors/toggle-status", data={}, cookies=bob)
+    assert bob_toggle.status_code == 403
+
+    # Test response-public endpoint
+    # Anonymous
+    anon_public = await ds.client.post("/-/assignments/mayors/response-public",
+                                       data={"id": "1", "public": "1"})
+    assert anon_public.status_code == 403
+    # Bob (non-owner)
+    bob_public = await ds.client.post("/-/assignments/mayors/response-public",
+                                      data={"id": "1", "public": "1"}, cookies=bob)
+    assert bob_public.status_code == 403
+
+    # Test delete endpoint
+    # Anonymous
+    anon_delete = await ds.client.post("/-/assignments/mayors/delete",
+                                       data={"confirm": "mayors"})
+    assert anon_delete.status_code == 403
+    # Bob (non-owner)
+    bob_delete = await ds.client.post("/-/assignments/mayors/delete",
+                                      data={"confirm": "mayors"}, cookies=bob)
+    assert bob_delete.status_code == 403
+
+    # Verify assignment still exists and status is still 'open'
+    from datasette_assignments import registry as reg
+    row = await reg.get(ds, "mayors")
+    assert row is not None
+    db = ds.get_database("assignments_data")
+    status_result = await db.execute(
+        "SELECT value FROM a_mayors_config WHERE key='status'")
+    status = status_result.first()[0] if status_result.first() else None
+    assert status == "open"

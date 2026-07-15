@@ -269,11 +269,12 @@ async def assignments_target(datasette, request):
 
     post = await request.post_vars()
     try:
-        target = int(post.get("responses_per_task", "3"))
-        if target < 1:
-            target = 1
+        target = int(post.get("responses_per_task", ""))
     except (ValueError, TypeError):
-        target = 3
+        return Response.text("responses_per_task must be an integer >= 1", status=400)
+
+    if target < 1:
+        return Response.text("responses_per_task must be an integer >= 1", status=400)
 
     db_name = get_data_db_name(datasette)
     db = datasette.get_database(db_name)
@@ -293,7 +294,10 @@ async def assignments_response_public(datasette, request):
         return Response.redirect(f"/-/assignments/{slug}")
 
     post = await request.post_vars()
-    resp_id = post.get("id", "")
+    try:
+        resp_id = int(post.get("id", ""))
+    except (ValueError, TypeError):
+        return Response.text("id must be an integer", status=400)
     public = 1 if post.get("public", "0") in ("1", "true", "yes") else 0
 
     db_name = get_data_db_name(datasette)

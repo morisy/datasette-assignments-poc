@@ -59,7 +59,9 @@
   <thead>
     <tr>
       {% for col in responses[0].keys() %}
+      {% if col != 'is_public' %}
       <th>{{ col }}</th>
+      {% endif %}
       {% endfor %}
       <th>Public</th>
     </tr>
@@ -67,8 +69,10 @@
   <tbody>
     {% for resp in responses %}
     <tr>
-      {% for val in resp.values() %}
+      {% for col, val in resp.items() %}
+      {% if col != 'is_public' %}
       <td>{{ val }}</td>
+      {% endif %}
       {% endfor %}
       <td>
         <form method="post" action="{{ urls.path('/-/assignments/' ~ slug ~ '/response-public') }}">
