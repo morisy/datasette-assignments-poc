@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>City Public Records Census</title>
+  <style>
+    :root {
+      --ink: #1a1a2e; --ink-mid: #4a4a6a; --ink-soft: #8888aa;
+      --paper: #f7f7fb; --rule: #dddde8;
+      --accent: #3b5bdb; --accent-dk: #2f4ac5;
+      --ok: #2f9e44; --warn: #e67700; --radius: 6px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 15px; line-height: 1.55;
+      background: var(--paper); color: var(--ink);
+      min-height: 100vh; display: flex; flex-direction: column;
+    }
+    header {
+      border-bottom: 1px solid var(--rule); padding: 14px 20px; background: #fff;
+      display: flex; align-items: baseline; gap: 10px;
+    }
+    .eyebrow {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--accent);
+    }
+    header h1 { font-size: 15px; font-weight: 700; }
+    .progress-wrap { background: #fff; border-bottom: 1px solid var(--rule); padding: 10px 20px; }
+    .progress-label {
+      display: flex; justify-content: space-between;
+      font-size: 12px; color: var(--ink-soft); margin-bottom: 6px;
+    }
+    .progress-label strong { color: var(--ink-mid); }
+    .progress-track { height: 4px; background: var(--rule); border-radius: 2px; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.4s ease; }
+    main { flex: 1; max-width: 680px; width: 100%; margin: 0 auto; padding: 24px 20px 48px; }
+    .card { background: #fff; border: 1px solid var(--rule); border-radius: var(--radius); overflow: hidden; }
+    .card-task { padding: 18px 20px; border-bottom: 1px solid var(--rule); }
+    .task-label {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--ink-soft); margin-bottom: 8px;
+    }
+    .city-name { font-size: 24px; font-weight: 700; line-height: 1.2; }
+    .city-meta { margin-top: 6px; font-size: 14px; color: var(--ink-soft); }
+    .city-meta a { color: var(--accent); text-decoration: none; font-weight: 600; }
+    .city-meta a:hover { text-decoration: underline; }
+    .instructions {
+      margin-top: 12px; padding: 10px 14px; background: var(--paper);
+      border-radius: var(--radius); font-size: 13px; color: var(--ink-mid);
+    }
+    .card-form { padding: 18px 20px; display: grid; gap: 20px; }
+    .field-group { display: grid; gap: 6px; }
+    label { font-size: 13px; font-weight: 600; color: var(--ink-mid); }
+    .hint { font-size: 12px; font-weight: 400; color: var(--ink-soft); }
+    input[type="url"], input[type="email"], textarea {
+      width: 100%; padding: 9px 12px; border: 1px solid var(--rule); border-radius: var(--radius);
+      font: inherit; font-size: 14px; color: var(--ink); background: #fff;
+      transition: border-color 0.12s, box-shadow 0.12s;
+    }
+    input:focus, textarea:focus {
+      outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,91,219,0.12);
+    }
+    input:disabled { background: var(--paper); color: var(--ink-soft); }
+    textarea { min-height: 60px; resize: vertical; }
+    .missing-row { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--ink-mid); }
+    .missing-row input { accent-color: var(--accent); width: 15px; height: 15px; }
+    .field-error { font-size: 12px; color: var(--warn); display: none; }
+    .field-group.invalid .field-error { display: block; }
+    .field-group.invalid input[type="url"],
+    .field-group.invalid input[type="email"] { border-color: var(--warn); }
+    .action-bar {
+      padding: 14px 20px; border-top: 1px solid var(--rule);
+      display: flex; gap: 10px; align-items: center;
+    }
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px;
+      border-radius: var(--radius); font: inherit; font-size: 14px; font-weight: 600;
+      cursor: pointer; border: none; transition: background 0.12s;
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-dk); }
+    .btn-skip { background: transparent; color: var(--ink-soft); border: 1px solid var(--rule); }
+    .btn-skip:hover:not(:disabled) { background: var(--rule); }
+    .remaining { margin-left: auto; font-size: 12px; color: var(--ink-soft); }
+    .state { text-align: center; padding: 60px 20px; }
+    .state-icon { font-size: 36px; margin-bottom: 12px; }
+    .state h2 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+    .state p { color: var(--ink-soft); font-size: 14px; }
+    .toast {
+      position: fixed; bottom: 24px; left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--ink); color: #fff; padding: 10px 20px; border-radius: 99px;
+      font-size: 13px; font-weight: 500; opacity: 0;
+      transition: transform 0.25s ease, opacity 0.25s ease; pointer-events: none;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    .toast.ok { background: var(--ok); }
+    .toast.warn { background: var(--warn); }
+    .spinner {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff;
+      border-radius: 50%; animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) {
+      .spinner { animation: none; } .progress-fill { transition: none; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="eyebrow">Assignment</span>
+  <h1>City Public Records Census</h1>
+</header>
+
+<div class="progress-wrap">
+  <div class="progress-label">
+    <span>Progress</span>
+    <span><strong id="done-count">0</strong> of <strong id="total-count">0</strong> cities fully verified</span>
+  </div>
+  <div class="progress-track">
+    <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+  </div>
+</div>
+
+<main id="main">
+  <div class="state"><div class="state-icon">⏳</div><h2>Loading…</h2></div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const DB = "census";
+
+let currentTask = null;
+let target = 3;
+let totalCount = 0;
+let doneCount = 0;
+let collected = 0;
+let toastTimer;
+
+// Cities this browser session already answered or skipped. Survives refresh.
+const SEEN_KEY = "census_seen:" + location.pathname;
+let seen = loadSeen();
+function loadSeen() {
+  try { return new Set(JSON.parse(sessionStorage.getItem(SEEN_KEY) || "[]")); }
+  catch { return new Set(); }
+}
+function saveSeen() { try { sessionStorage.setItem(SEEN_KEY, JSON.stringify([...seen])); } catch {} }
+function markSeen(id) { seen.add(id); saveSeen(); }
+
+function $(id) { return document.getElementById(id); }
+
+function showToast(msg, type = "") {
+  const t = $("toast");
+  t.textContent = msg;
+  t.className = "toast show" + (type ? " " + type : "");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = "toast"; }, 2800);
+}
+
+function esc(str) {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+async function loadProgress() {
+  const r = await datasette.query(DB,
+    `WITH n AS (SELECT CAST(value AS INTEGER) AS target FROM config WHERE key = 'responses_per_task'),
+          counts AS (
+            SELECT t.id, (SELECT COUNT(*) FROM responses r WHERE r.task_id = t.id) AS c
+            FROM tasks t
+          )
+     SELECT (SELECT target FROM n) AS target,
+            COUNT(*) AS total,
+            SUM(CASE WHEN c >= (SELECT target FROM n) THEN 1 ELSE 0 END) AS done,
+            COALESCE(SUM(c), 0) AS collected
+     FROM counts`);
+  const row = r.rows[0];
+  target     = row.target || 3;
+  totalCount = row.total || 0;
+  doneCount  = row.done  || 0;
+  collected  = row.collected || 0;
+
+  $("done-count").textContent  = doneCount;
+  $("total-count").textContent = totalCount;
+  const goal = totalCount * target;
+  const pct = goal > 0 ? Math.min(100, Math.round((collected / goal) * 100)) : 0;
+  $("progress-fill").style.width = pct + "%";
+}
+
+async function loadNextTask() {
+  $("main").innerHTML = `<div class="state"><div class="state-icon">⏳</div><h2>Loading next city…</h2></div>`;
+  const excludeClause = seen.size ? `AND t.id NOT IN (${[...seen].join(",")})` : "";
+  const r = await datasette.query(DB,
+    `SELECT t.id, t.city, t.state
+     FROM tasks t
+     WHERE (SELECT COUNT(*) FROM responses r WHERE r.task_id = t.id)
+           < (SELECT CAST(value AS INTEGER) FROM config WHERE key = 'responses_per_task')
+       ${excludeClause}
+     ORDER BY RANDOM()
+     LIMIT 1`);
+  if (!r.rows.length) {
+    const everythingDone = doneCount >= totalCount && totalCount > 0;
+    $("main").innerHTML = `
+      <div class="state">
+        <div class="state-icon">✅</div>
+        <h2>${everythingDone ? "All done!" : "You're all caught up"}</h2>
+        <p>${everythingDone
+            ? "Every city has collected enough responses. Thank you for contributing."
+            : "You've covered every city still open right now. Check back later as others finish, or share the link with more people."}</p>
+      </div>`;
+    currentTask = null;
+    return;
+  }
+  currentTask = r.rows[0];
+  renderTask(currentTask);
+}
+
+function fieldGroup(key, label, hint, inputType, placeholder, missingLabel) {
+  return `
+    <div class="field-group" id="group-${key}">
+      <label for="${key}">${label} <span class="hint">${hint}</span></label>
+      <input type="${inputType}" id="${key}" placeholder="${placeholder}" autocomplete="off">
+      <div class="missing-row">
+        <input type="checkbox" id="${key}-missing"
+               onchange="toggleMissing('${key}')">
+        <label for="${key}-missing" style="font-weight:400">${missingLabel}</label>
+      </div>
+      <div class="field-error" id="${key}-error"></div>
+    </div>`;
+}
+
+function renderTask(task) {
+  const remaining = totalCount - doneCount;
+  $("main").innerHTML = `
+    <div class="card">
+      <div class="card-task">
+        <div class="task-label">Your city</div>
+        <div class="city-name">${esc(task.city)}, ${esc(task.state)}</div>
+        <div class="instructions">
+          Find ${esc(task.city)}'s official city website (search the web for
+          "${esc(task.city)} ${esc(task.state)} official city site" — it usually ends in .gov),
+          then look for the three items below.
+          Tips: search the site for "public records", "FOIA", "open records", or "open data".
+          If you genuinely can't find one after a few minutes, check its "couldn't find" box — that's
+          useful data too.
+        </div>
+      </div>
+      <div class="card-form">
+        ${fieldGroup("records-page", "Public records request page",
+          "(where residents ask for records)", "url", "https://…",
+          "I couldn't find a public records page")}
+        ${fieldGroup("records-email", "Public records email address",
+          "(for submitting requests)", "email", "records@…",
+          "I couldn't find a public records email")}
+        ${fieldGroup("data-portal", "Open data portal",
+          "(datasets the city publishes)", "url", "https://…",
+          "I couldn't find an open data portal")}
+        <div class="field-group">
+          <label for="notes">Notes <span class="hint">(optional — anything confusing or worth flagging)</span></label>
+          <textarea id="notes"></textarea>
+        </div>
+      </div>
+      <div class="action-bar">
+        <button class="btn btn-primary" id="btn-submit" onclick="submitResponse()">Submit</button>
+        <button class="btn btn-skip" onclick="skipTask()">Skip this city</button>
+        <span class="remaining">${remaining} cities to go</span>
+      </div>
+    </div>`;
+}
+
+function toggleMissing(key) {
+  const input = $(key);
+  const missing = $(key + "-missing").checked;
+  input.disabled = missing;
+  if (missing) { input.value = ""; clearError(key); }
+}
+
+function setError(key, msg) {
+  $("group-" + key).classList.add("invalid");
+  $(key + "-error").textContent = msg;
+}
+function clearError(key) {
+  $("group-" + key).classList.remove("invalid");
+}
+
+// Each field needs either a value or its "couldn't find" box —
+// a flagged absence is data, a blank is not.
+function readField(key, kind, label) {
+  clearError(key);
+  const missing = $(key + "-missing").checked;
+  const value = $(key).value.trim();
+  if (missing) return { value: "", missing: 1 };
+  if (!value) {
+    setError(key, `Enter the ${label}, or check "couldn't find" below.`);
+    return null;
+  }
+  if (kind === "url" && !/^https?:\/\/.+\..+/.test(value)) {
+    setError(key, "That doesn't look like a full URL — it should start with http:// or https://");
+    return null;
+  }
+  if (kind === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+    setError(key, "That doesn't look like an email address.");
+    return null;
+  }
+  return { value, missing: 0 };
+}
+
+async function submitResponse() {
+  if (!currentTask) return;
+  const page   = readField("records-page", "url", "public records page URL");
+  const email  = readField("records-email", "email", "public records email");
+  const portal = readField("data-portal", "url", "open data portal URL");
+  if (!page || !email || !portal) {
+    showToast("Each item needs a value or its \"couldn't find\" box checked", "warn");
+    return;
+  }
+  const btn = $("btn-submit");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Saving…';
+  try {
+    await datasette.storedQuery(DB, "submit_response", {
+      task_id: currentTask.id,
+      records_page_url: page.value,
+      records_page_missing: page.missing,
+      records_email: email.value,
+      records_email_missing: email.missing,
+      data_portal_url: portal.value,
+      data_portal_missing: portal.missing,
+      notes: $("notes").value.trim() || null
+    });
+    markSeen(currentTask.id);
+    await loadProgress();
+    showToast("Saved — thank you!", "ok");
+    await loadNextTask();
+  } catch(e) {
+    btn.disabled = false;
+    btn.innerHTML = "Submit";
+    showToast("Save failed: " + (e.message || String(e)), "warn");
+  }
+}
+
+// Skip is client-side only: this session moves past the city without
+// recording anything, so one person skipping never removes it for everyone.
+async function skipTask() {
+  if (!currentTask) return;
+  markSeen(currentTask.id);
+  showToast("Skipped");
+  await loadNextTask();
+}
+
+async function main() {
+  await loadProgress();
+  await loadNextTask();
+}
+main().catch(e => {
+  $("main").innerHTML = `<div class="state"><div class="state-icon">⚠️</div><h2>Error</h2><p>${esc(e.message || String(e))}</p></div>`;
+});
+</script>
+</body>
+</html>
