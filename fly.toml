@@ -1,5 +1,5 @@
 app = "records-census-demo"
-primary_region = "bos"
+primary_region = "iad"
 
 [mounts]
   source = "data"
