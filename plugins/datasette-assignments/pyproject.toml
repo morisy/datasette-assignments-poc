@@ -1,0 +1,19 @@
+[project]
+name = "datasette-assignments"
+version = "0.1a0"
+description = "WYSIWYG builder for crowdsourcing assignments on Datasette"
+requires-python = ">=3.11"
+dependencies = ["datasette>=1.0a35", "datasette-apps>=0.1a3"]
+
+[project.entry-points.datasette]
+assignments = "datasette_assignments"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["datasette_assignments*"]
+
+[tool.setuptools.package-data]
+datasette_assignments = ["templates/*", "static/*"]
