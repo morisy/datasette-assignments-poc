@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}{{ defn.name }} — Gallery{% endblock %}
+
+{% block extra_head %}
+<style>
+  :root {
+    --ink: #1a1a2e; --ink-mid: #4a4a6a; --ink-soft: #8888aa;
+    --paper: #f7f7fb; --rule: #dddde8;
+    --accent: #3b5bdb; --accent-dk: #2f4ac5;
+    --ok: #2f9e44; --warn: #e67700; --radius: 6px;
+  }
+  .gallery-hero {
+    background: #fff; border-bottom: 1px solid var(--rule);
+    padding: 28px 20px 20px; margin-bottom: 28px;
+  }
+  .gallery-hero .eyebrow {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 8px;
+  }
+  .gallery-hero h1 { font-size: 22px; font-weight: 700; margin-bottom: 8px; color: var(--ink); }
+  .gallery-hero .instructions { font-size: 14px; color: var(--ink-mid); margin-bottom: 12px; }
+  .gallery-hero .meta { font-size: 13px; color: var(--ink-soft); }
+  .gallery-hero .btn-contribute {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 20px; background: var(--accent); color: #fff;
+    border-radius: var(--radius); font-weight: 600; font-size: 14px;
+    text-decoration: none; transition: background 0.12s; margin-top: 14px;
+  }
+  .gallery-hero .btn-contribute:hover { background: var(--accent-dk); }
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 20px 48px;
+  }
+  .gallery-card {
+    background: #fff; border: 1px solid var(--rule);
+    border-radius: var(--radius); overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .gallery-card-body { padding: 16px 18px; flex: 1; display: grid; gap: 12px; }
+  .gallery-field-label {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-soft); margin-bottom: 4px;
+  }
+  .gallery-field-value { font-size: 14px; color: var(--ink); line-height: 1.5; }
+  .gallery-field-value a { color: var(--accent); text-decoration: none; font-weight: 500; }
+  .gallery-field-value a:hover { text-decoration: underline; }
+  .gallery-card-footer {
+    padding: 10px 18px; border-top: 1px solid var(--rule);
+    font-size: 12px; color: var(--ink-soft);
+  }
+  .gallery-pagination {
+    display: flex; justify-content: center; align-items: center; gap: 16px;
+    padding: 16px 20px 40px; font-size: 14px;
+  }
+  .gallery-pagination a {
+    display: inline-flex; align-items: center; padding: 7px 16px;
+    border: 1px solid var(--rule); border-radius: var(--radius);
+    color: var(--ink-mid); text-decoration: none; font-weight: 500;
+  }
+  .gallery-pagination a:hover { background: var(--paper); }
+  .gallery-empty {
+    text-align: center; padding: 60px 20px; color: var(--ink-soft);
+  }
+  .gallery-empty .empty-icon { font-size: 36px; margin-bottom: 12px; }
+  .gallery-empty h2 { font-size: 18px; font-weight: 600; margin-bottom: 8px; color: var(--ink-mid); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="gallery-hero">
+  <div class="eyebrow">Public Gallery</div>
+  <h1>{{ defn.name }}</h1>
+  {% if defn.instructions %}
+  <div class="instructions">{{ defn.instructions }}</div>
+  {% endif %}
+  <div class="meta">{{ total_count }} published response{{ "s" if total_count != 1 else "" }}</div>
+  {% if app_id %}
+  <a class="btn-contribute" href="{{ urls.path('/-/apps/' ~ app_id) }}">Contribute →</a>
+  {% endif %}
+</div>
+
+{% if cards %}
+<div class="gallery-grid">
+  {% for card in cards %}
+  <div class="gallery-card">
+    <div class="gallery-card-body">
+      {% for field in card.fields %}
+      <div class="gallery-field">
+        <div class="gallery-field-label">{{ field.label }}</div>
+        <div class="gallery-field-value">
+          {% if field.is_url %}
+          <a href="{{ field.value }}" rel="noopener nofollow" target="_blank">{{ field.value }}</a>
+          {% else %}
+          {{ field.value if field.value else "—" }}
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="gallery-card-footer">
+      Submitted {{ card.submitted_at }}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="gallery-pagination">
+  {% if page > 1 %}
+  <a href="{{ urls.path('/-/assignments/' ~ slug ~ '/gallery') }}?page={{ page - 1 }}">&larr; Previous</a>
+  {% endif %}
+  <span>Page {{ page }}</span>
+  {% if has_next %}
+  <a href="{{ urls.path('/-/assignments/' ~ slug ~ '/gallery') }}?page={{ page + 1 }}">Next &rarr;</a>
+  {% endif %}
+</div>
+
+{% else %}
+<div class="gallery-empty">
+  <div class="empty-icon">📭</div>
+  <h2>Nothing published yet.</h2>
+  <p>Responses marked public will appear here.</p>
+  {% if app_id %}
+  <p style="margin-top:16px"><a href="{{ urls.path('/-/apps/' ~ app_id) }}" style="color:var(--accent);font-weight:600">Be the first to contribute →</a></p>
+  {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}

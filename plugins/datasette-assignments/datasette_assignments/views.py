@@ -314,6 +314,12 @@ async def assignments_manage(datasette, request):
     except Exception:
         pass
 
+    # Check if any gallery fields exist
+    has_gallery_fields = any(
+        f.get("kind") == "input" and f.get("gallery")
+        for f in defn.get("fields", [])
+    )
+
     return Response.html(
         await datasette.render_template(
             "assignments_manage.html",
@@ -324,6 +330,7 @@ async def assignments_manage(datasette, request):
                 "progress": progress,
                 "responses": responses,
                 "has_public_view": has_public_view,
+                "has_gallery_fields": has_gallery_fields,
                 "db_name": db_name,
                 "app_id": row.get("app_id", ""),
             },
@@ -420,6 +427,94 @@ async def assignments_delete(datasette, request):
 
     await destroy_assignment(datasette, slug)
     return Response.redirect("/-/assignments")
+
+
+# ── Gallery (public) ──────────────────────────────────────────────────────────
+
+import re as _re
+
+async def assignments_gallery(datasette, request):
+    slug = request.url_vars["slug"]
+    row = await registry.get(datasette, slug)
+    if not row:
+        raise NotFound(f"Assignment {slug!r} not found")
+
+    defn = row["definition"]
+
+    # Collect gallery-flagged input fields (with their labels)
+    gallery_fields = [
+        f for f in defn.get("fields", [])
+        if f.get("kind") == "input" and f.get("gallery")
+    ]
+    if not gallery_fields:
+        raise NotFound(f"Assignment {slug!r} has no gallery fields")
+
+    # Pagination
+    try:
+        page = max(1, int(request.args.get("page", "1") or 1))
+    except (ValueError, TypeError):
+        page = 1
+
+    gallery_col_ids = [f["id"] for f in gallery_fields]
+    cols_sql = ", ".join(gallery_col_ids)
+    offset = (page - 1) * 50
+
+    db_name = get_data_db_name(datasette)
+    db = datasette.get_database(db_name)
+
+    # Fetch total public count
+    count_result = await db.execute(
+        f"SELECT COUNT(*) FROM a_{slug}_responses WHERE is_public = 1"
+    )
+    total_count = count_result.first()[0]
+
+    # Fetch 51 to detect has-next
+    rows_result = await db.execute(
+        f"SELECT id, {cols_sql}, submitted_at FROM a_{slug}_responses"
+        f" WHERE is_public = 1 ORDER BY id DESC LIMIT 51 OFFSET ?",
+        [offset],
+    )
+    raw_rows = rows_result.rows
+    has_next = len(raw_rows) > 50
+    raw_rows = raw_rows[:50]
+
+    # Build card dicts: [{label, value, is_url}, ...]
+    _url_re = _re.compile(r'^https?://')
+    cards = []
+    for r in raw_rows:
+        fields_out = []
+        for i, fld in enumerate(gallery_fields):
+            val = r[i + 1]  # offset 0 = id
+            val_str = str(val) if val is not None else ""
+            fields_out.append({
+                "label": fld["label"],
+                "value": val_str,
+                "is_url": bool(_url_re.match(val_str)),
+            })
+        cards.append({
+            "id": r[0],
+            "fields": fields_out,
+            "submitted_at": r[-1],
+        })
+
+    app_id = row.get("app_id", "")
+
+    return Response.html(
+        await datasette.render_template(
+            "assignments_gallery.html",
+            {
+                "defn": defn,
+                "slug": slug,
+                "gallery_fields": gallery_fields,
+                "cards": cards,
+                "page": page,
+                "has_next": has_next,
+                "total_count": total_count,
+                "app_id": app_id,
+            },
+            request=request,
+        )
+    )
 
 
 # ── CSV Export ────────────────────────────────────────────────────────────────
