@@ -35,13 +35,46 @@ async def _require_owner_or_root(datasette, request, slug):
 
 # ── List ──────────────────────────────────────────────────────────────────────
 
+async def _assignment_progress(db, slug, mode):
+    """Fetch per-assignment progress stats; returns a dict (empty on error)."""
+    try:
+        if mode == "tasks":
+            result = await db.execute(
+                f"SELECT"
+                f" (SELECT COUNT(*) FROM a_{slug}_tasks) AS total,"
+                f" (SELECT COUNT(*) FROM a_{slug}_tasks WHERE status='done') AS done"
+            )
+            r = result.first()
+            return dict(r) if r else {}
+        else:
+            result = await db.execute(
+                f"SELECT COUNT(*) AS collected FROM a_{slug}_responses"
+            )
+            r = result.first()
+            return dict(r) if r else {}
+    except Exception:
+        return {}
+
+
 async def assignments_list(datasette, request):
     _require_actor(request)
     assignments = await registry.list_for(datasette, request.actor)
+
+    db_name = get_data_db_name(datasette)
+    db = datasette.get_database(db_name)
+
+    # Attach per-assignment progress (tasks: done/total; form: collected count)
+    enriched = []
+    for a in assignments:
+        slug = a["slug"]
+        mode = (a.get("definition") or {}).get("mode", "form")
+        progress = await _assignment_progress(db, slug, mode)
+        enriched.append({"assignment": a, "progress": progress, "mode": mode})
+
     return Response.html(
         await datasette.render_template(
             "assignments_list.html",
-            {"assignments": assignments},
+            {"enriched": enriched},
             request=request,
         )
     )

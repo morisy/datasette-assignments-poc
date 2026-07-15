@@ -109,14 +109,75 @@
   var COMPANION_TYPES = ["text", "textarea", "url", "email"];
   var OPTION_TYPES = ["select", "checkbox_group"];
 
+  // ── Drag state ─────────────────────────────────────────────────────────────
+  var _dragSrcIndex = null;
+
   function renderFieldCard(field, index) {
     var editMode = !!window.__editMode;
     var card = document.createElement("div");
     card.className = "field-card";
     card.dataset.index = index;
 
+    // Drag-reorder: disabled in edit mode
+    if (!editMode) {
+      card.draggable = true;
+      card.addEventListener("dragstart", function (e) {
+        _dragSrcIndex = index;
+        card.classList.add("drag-source");
+        e.dataTransfer.effectAllowed = "move";
+      });
+      card.addEventListener("dragend", function () {
+        card.classList.remove("drag-source");
+        // Clear any lingering hints
+        var container = document.getElementById("fields-container");
+        if (container) {
+          container.querySelectorAll(".drag-over").forEach(function (el) {
+            el.classList.remove("drag-over");
+          });
+        }
+      });
+      card.addEventListener("dragover", function (e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        var container = document.getElementById("fields-container");
+        if (container) {
+          container.querySelectorAll(".drag-over").forEach(function (el) {
+            el.classList.remove("drag-over");
+          });
+        }
+        if (_dragSrcIndex !== null && _dragSrcIndex !== index) {
+          card.classList.add("drag-over");
+        }
+      });
+      card.addEventListener("dragleave", function (e) {
+        // Only clear if leaving to outside this card
+        if (!card.contains(e.relatedTarget)) {
+          card.classList.remove("drag-over");
+        }
+      });
+      card.addEventListener("drop", function (e) {
+        e.preventDefault();
+        card.classList.remove("drag-over");
+        if (_dragSrcIndex === null || _dragSrcIndex === index) return;
+        var moved = fields.splice(_dragSrcIndex, 1)[0];
+        fields.splice(index, 0, moved);
+        _dragSrcIndex = null;
+        renderFields();
+        notifyChanged();
+      });
+    }
+
     var header = document.createElement("div");
     header.className = "field-header";
+
+    // Drag handle (not shown in edit mode)
+    if (!editMode) {
+      var handle = document.createElement("span");
+      handle.className = "drag-handle";
+      handle.textContent = "⋮⋮";
+      handle.title = "Drag to reorder";
+      header.appendChild(handle);
+    }
 
     // Type badge / static type+id display
     if (editMode && field.kind === "input") {

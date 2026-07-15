@@ -8,12 +8,36 @@
   <p><a class="button" href="{{ urls.path('/-/assignments/new') }}">New Assignment</a></p>
 </div>
 
-{% if assignments %}
-<ul class="assignments-list">
-  {% for a in assignments %}
-  <li>
-    <a href="{{ urls.path('/-/assignments/' ~ a.slug) }}">{{ a.name }}</a>
-    <small>({{ a.slug }}, {{ a.mode }}, owner: {{ a.owner_id }})</small>
+{% if enriched %}
+<ul class="assignments-list" style="list-style:none;padding:0;margin:0;">
+  {% for item in enriched %}
+  {% set a = item.assignment %}
+  {% set p = item.progress %}
+  {% set mode = item.mode %}
+  <li style="margin-bottom:1rem;padding:0.85rem 1rem;border:1px solid #dddde8;border-radius:6px;background:#fff;">
+    <div style="display:flex;align-items:baseline;gap:0.6em;margin-bottom:0.4em;">
+      <a href="{{ urls.path('/-/assignments/' ~ a.slug) }}" style="font-weight:600;font-size:15px;">{{ a.name }}</a>
+      <small style="color:#8888aa;">{{ a.slug }} · {{ mode }} · owner: {{ a.owner_id }}</small>
+    </div>
+    {% if mode == "tasks" and p %}
+      {% set done = p.done or 0 %}
+      {% set total = p.total or 0 %}
+      {% if total > 0 %}
+        {% set pct = (done / total * 100)|int %}
+      {% else %}
+        {% set pct = 0 %}
+      {% endif %}
+      <div class="progress-track" style="height:6px;background:#dddde8;border-radius:3px;overflow:hidden;margin-bottom:4px;">
+        <div class="progress-fill" style="height:100%;width:{{ pct }}%;background:#2f9e44;border-radius:3px;transition:width 0.3s;"></div>
+      </div>
+      <small style="color:#4a4a6a;">{{ done }} of {{ total }} tasks complete</small>
+    {% elif mode == "form" and p %}
+      {% set collected = p.collected or 0 %}
+      <div class="progress-track" style="height:6px;background:#dddde8;border-radius:3px;overflow:hidden;margin-bottom:4px;">
+        <div class="progress-fill" style="height:100%;width:100%;background:#3b5bdb;border-radius:3px;opacity:{{ [0.15, (collected / 10)|float]|max if collected < 10 else 1 }};"></div>
+      </div>
+      <small style="color:#4a4a6a;">{{ collected }} contributions</small>
+    {% endif %}
   </li>
   {% endfor %}
 </ul>
