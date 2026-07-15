@@ -172,12 +172,39 @@ END""")
         gcols = ", ".join(gallery_cols)
         stmts.append(f"""CREATE VIEW a_{slug}_public AS
 SELECT id, {gcols}, submitted_at FROM a_{slug}_responses WHERE is_public = 1""")
+    if mode == "tasks":
+        title_col = defn.get("task_title_column") or defn["task_columns"][0]
+        # Primary input-field columns only — exclude _missing companions
+        input_col_ids = [f["id"] for f in _input_fields(defn)]
+        per_col_exprs = []
+        for col in input_col_ids:
+            per_col_exprs.append(
+                f"  (SELECT r.{col} FROM a_{slug}_responses r"
+                f" WHERE r.task_id = t.id"
+                f" GROUP BY r.{col} ORDER BY COUNT(*) DESC, r.{col} LIMIT 1)"
+                f" AS {col}_majority"
+            )
+            per_col_exprs.append(
+                f"  (SELECT COUNT(DISTINCT r.{col}) FROM a_{slug}_responses r"
+                f" WHERE r.task_id = t.id)"
+                f" AS {col}_distinct"
+            )
+        exprs_sql = ",\n".join(per_col_exprs)
+        stmts.append(
+            f"CREATE VIEW a_{slug}_agreement AS\n"
+            f"SELECT t.id AS task_id, t.{title_col} AS task_title,\n"
+            f"  (SELECT COUNT(*) FROM a_{slug}_responses r WHERE r.task_id = t.id)"
+            f" AS response_count,\n"
+            f"{exprs_sql}\n"
+            f"FROM a_{slug}_tasks t"
+        )
     return stmts
 
 
 def drop_ddl(slug, mode):
     stmts = [f"DROP VIEW IF EXISTS a_{slug}_public"]
     if mode == "tasks":
+        stmts.append(f"DROP VIEW IF EXISTS a_{slug}_agreement")
         stmts.append(f"DROP TRIGGER IF EXISTS a_{slug}_mark_done")
     stmts.append(f"DROP TABLE IF EXISTS a_{slug}_responses")
     stmts.append(f"DROP TABLE IF EXISTS a_{slug}_config")

@@ -223,3 +223,33 @@ async def test_mutation_endpoints_reject_non_owner_and_anon(tmp_path):
         "SELECT value FROM a_mayors_config WHERE key='status'")
     status = status_result.first()[0] if status_result.first() else None
     assert status == "open"
+
+
+# ── Agreement view permission tests (Task 4) ──────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_agreement_view_anon_and_non_owner_get_403(tmp_path):
+    """Anonymous and non-owner actors must receive 403 on a_<slug>_agreement."""
+    ds = await build_instance(tmp_path)
+    # Anonymous
+    anon_resp = await ds.client.get("/assignments_data/a_mayors_agreement.json")
+    assert anon_resp.status_code == 403
+    # Non-owner (bob)
+    bob_cookie = {"ds_actor": ds.client.actor_cookie({"id": "bob"})}
+    bob_resp = await ds.client.get(
+        "/assignments_data/a_mayors_agreement.json", cookies=bob_cookie)
+    assert bob_resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_agreement_view_owner_and_root_get_200(tmp_path):
+    """Owner and root actors must receive 200 on a_<slug>_agreement."""
+    ds = await build_instance(tmp_path)
+    owner_cookie = {"ds_actor": ds.client.actor_cookie({"id": "alice"})}
+    owner_resp = await ds.client.get(
+        "/assignments_data/a_mayors_agreement.json", cookies=owner_cookie)
+    assert owner_resp.status_code == 200
+    root_cookie = {"ds_actor": ds.client.actor_cookie({"id": "root"})}
+    root_resp = await ds.client.get(
+        "/assignments_data/a_mayors_agreement.json", cookies=root_cookie)
+    assert root_resp.status_code == 200

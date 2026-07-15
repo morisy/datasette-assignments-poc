@@ -85,7 +85,8 @@ def permission_resources_sql(datasette, actor, action):
     # the current actor.  The query runs against the internal DB where
     # assignments_registry lives.
     if actor_id is not None:
-        # Authenticated non-owner: deny all response tables not owned by this actor.
+        # Authenticated non-owner: deny all response tables and agreement views
+        # not owned by this actor.
         sql = """
         SELECT :da_db                              AS parent,
                'a_' || slug || '_responses'        AS child,
@@ -100,6 +101,20 @@ def permission_resources_sql(datasette, actor, action):
                'assignments: responses table visible to owner' AS reason
         FROM assignments_registry
         WHERE owner_id = :da_actor_id
+        UNION ALL
+        SELECT :da_db                              AS parent,
+               'a_' || slug || '_agreement'        AS child,
+               0                                  AS allow,
+               'assignments: agreement view is private' AS reason
+        FROM assignments_registry
+        WHERE owner_id != :da_actor_id
+        UNION ALL
+        SELECT :da_db                              AS parent,
+               'a_' || slug || '_agreement'        AS child,
+               1                                  AS allow,
+               'assignments: agreement view visible to owner' AS reason
+        FROM assignments_registry
+        WHERE owner_id = :da_actor_id
         """
         return PermissionSQL(
             source=PLUGIN_NAME,
@@ -107,12 +122,18 @@ def permission_resources_sql(datasette, actor, action):
             params={"da_db": data_db, "da_actor_id": actor_id},
         )
     else:
-        # Anonymous actor: deny all response tables.
+        # Anonymous actor: deny all response tables and agreement views.
         sql = """
         SELECT :da_db                              AS parent,
                'a_' || slug || '_responses'        AS child,
                0                                  AS allow,
                'assignments: responses table is private' AS reason
+        FROM assignments_registry
+        UNION ALL
+        SELECT :da_db                              AS parent,
+               'a_' || slug || '_agreement'        AS child,
+               0                                  AS allow,
+               'assignments: agreement view is private' AS reason
         FROM assignments_registry
         """
         return PermissionSQL(

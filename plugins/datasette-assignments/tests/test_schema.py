@@ -366,3 +366,77 @@ def test_merge_editable_options_append_only():
     posted["fields"][0]["options"] = ["a", "b", 123]   # non-string -> error
     with pytest.raises(DefinitionError):
         merge_editable(stored, posted)
+
+
+# ── Agreement view tests (Task 4) ─────────────────────────────────────────────
+
+def test_agreement_view_exists_for_tasks_mode():
+    """build_ddl in tasks mode emits a CREATE VIEW a_<slug>_agreement statement."""
+    defn = tasks_defn()
+    stmts = build_ddl(defn)
+    joined = "\n".join(stmts)
+    assert "CREATE VIEW a_mayors_agreement" in joined
+    assert "task_id" in joined
+    assert "task_title" in joined
+    assert "response_count" in joined
+    # Primary input fields only (no _missing companions)
+    assert "records_page_majority" in joined
+    assert "records_page_distinct" in joined
+    assert "topics_majority" in joined
+    assert "topics_distinct" in joined
+    # _missing companion columns must NOT appear as majority/distinct targets
+    assert "records_page_missing_majority" not in joined
+    assert "records_page_missing_distinct" not in joined
+
+
+def test_agreement_view_absent_for_form_mode():
+    """build_ddl in form mode must NOT emit an agreement view."""
+    defn = validate_definition(make_defn(slug="tips"))
+    stmts = build_ddl(defn)
+    joined = "\n".join(stmts)
+    assert "a_tips_agreement" not in joined
+
+
+def test_agreement_majority_math():
+    """2 responses with 'x' + 1 with 'y' → majority 'x', distinct count 2."""
+    defn = tasks_defn()
+    conn = sqlite3.connect(":memory:")
+    for stmt in build_ddl(defn):
+        conn.execute(stmt)
+    conn.execute("INSERT INTO a_mayors_tasks (city, state) VALUES ('Boston', 'MA')")
+    conn.execute("INSERT INTO a_mayors_config (key, value) VALUES "
+                 "('responses_per_task','3'),('status','open')")
+    # Insert 2 responses with topics='x', 1 with topics='y'
+    for val in ("x", "x", "y"):
+        conn.execute(
+            "INSERT INTO a_mayors_responses "
+            "(task_id, records_page, records_page_missing, topics) "
+            "VALUES (1, 'https://a.gov', 0, ?)",
+            (val,),
+        )
+    row = conn.execute(
+        "SELECT response_count, topics_majority, topics_distinct "
+        "FROM a_mayors_agreement WHERE task_id = 1"
+    ).fetchone()
+    assert row is not None
+    response_count, topics_majority, topics_distinct = row
+    assert response_count == 3
+    assert topics_majority == "x"
+    assert topics_distinct == 2
+
+
+def test_drop_ddl_removes_agreement_view():
+    """drop_ddl removes the agreement view for tasks mode."""
+    defn = tasks_defn()
+    conn = sqlite3.connect(":memory:")
+    for stmt in build_ddl(defn):
+        conn.execute(stmt)
+    # Verify view exists before drop
+    views_before = [r[0] for r in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='view' AND name='a_mayors_agreement'")]
+    assert "a_mayors_agreement" in views_before
+    for stmt in drop_ddl("mayors", "tasks"):
+        conn.execute(stmt)
+    views_after = [r[0] for r in conn.execute(
+        "SELECT name FROM sqlite_master WHERE name LIKE 'a_mayors%'")]
+    assert "a_mayors_agreement" not in views_after
