@@ -7,7 +7,7 @@ import sys
 import os
 
 sys.path.insert(0, os.path.dirname(__file__))
-from test_schema import tasks_defn
+from test_schema import tasks_defn, make_defn
 
 
 async def build_instance(tmp_path):
@@ -57,3 +57,22 @@ async def test_stored_queries_still_work_anonymously(tmp_path):
     r = await ds.client.get(
         "/assignments_data/progress_mayors.json?_shape=array")
     assert r.status_code == 200 and r.json()[0]["total"] == 1
+
+
+@pytest.mark.asyncio
+async def test_owners_cannot_cross_read_other_assignments(tmp_path):
+    ds = await build_instance(tmp_path)  # creates 'mayors' owned by alice
+    council = validate_definition(make_defn(slug="council"))
+    await creator.create_assignment(ds, council, {"id": "bob"})
+    alice = {"ds_actor": ds.client.actor_cookie({"id": "alice"})}
+    bob = {"ds_actor": ds.client.actor_cookie({"id": "bob"})}
+    # each owner reads their own
+    assert (await ds.client.get("/assignments_data/a_mayors_responses.json",
+                                cookies=alice)).status_code == 200
+    assert (await ds.client.get("/assignments_data/a_council_responses.json",
+                                cookies=bob)).status_code == 200
+    # and is denied on the other's
+    assert (await ds.client.get("/assignments_data/a_council_responses.json",
+                                cookies=alice)).status_code == 403
+    assert (await ds.client.get("/assignments_data/a_mayors_responses.json",
+                                cookies=bob)).status_code == 403
