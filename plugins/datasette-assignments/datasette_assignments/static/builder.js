@@ -20,6 +20,16 @@
     return base + "_" + n;
   }
 
+  // ── notifyChanged ─────────────────────────────────────────────────────────
+  // Called on EVERY definition-affecting change (field edits, mode change,
+  // name/slug/instructions input, CSV input, option edits, reorder/remove).
+  // Task 3 subscribes its debounced preview render to this function.
+
+  function notifyChanged() {
+    // Task 3 will wire the live preview here (debounced ~600ms).
+    // For now: no-op stub.
+  }
+
   // ── Field factory ──────────────────────────────────────────────────────────
 
   function makeInputField(type) {
@@ -103,6 +113,7 @@
       inp.style.width = "100%";
       inp.addEventListener("input", function () {
         fields[index].text = inp.value;
+        notifyChanged();
       });
       lbl.appendChild(inp);
       row.appendChild(lbl);
@@ -128,6 +139,7 @@
         fields[index].id = generateIdForIndex(inpLabel.value, index);
         inpId.value = fields[index].id;
       }
+      notifyChanged();
     });
     lblLabel.appendChild(inpLabel);
     row1.appendChild(lblLabel);
@@ -142,6 +154,7 @@
     inpId.addEventListener("input", function () {
       fields[index].id = inpId.value;
       fields[index]._idManuallySet = true;
+      notifyChanged();
     });
     lblId.appendChild(inpId);
     row1.appendChild(lblId);
@@ -157,7 +170,10 @@
     inpHelp.type = "text";
     inpHelp.value = field.help || "";
     inpHelp.style.minWidth = "24em";
-    inpHelp.addEventListener("input", function () { fields[index].help = inpHelp.value; });
+    inpHelp.addEventListener("input", function () {
+      fields[index].help = inpHelp.value;
+      notifyChanged();
+    });
     lblHelp.appendChild(inpHelp);
     row2.appendChild(lblHelp);
     card.appendChild(row2);
@@ -172,7 +188,10 @@
       var cb = document.createElement("input");
       cb.type = "checkbox";
       cb.checked = !!field[propName];
-      cb.addEventListener("change", function () { fields[index][propName] = cb.checked; });
+      cb.addEventListener("change", function () {
+        fields[index][propName] = cb.checked;
+        notifyChanged();
+      });
       lbl.appendChild(cb);
       lbl.appendChild(document.createTextNode(" " + labelText));
       if (hint) {
@@ -214,6 +233,7 @@
           oInp.value = opt;
           oInp.addEventListener("input", function () {
             fields[index].options[oi] = oInp.value;
+            notifyChanged();
           });
           var oRemove = document.createElement("button");
           oRemove.type = "button";
@@ -221,6 +241,7 @@
           oRemove.addEventListener("click", function () {
             fields[index].options.splice(oi, 1);
             renderOptions();
+            notifyChanged();
           });
           oRow.appendChild(oInp);
           oRow.appendChild(oRemove);
@@ -237,6 +258,7 @@
         if (!fields[index].options) fields[index].options = [];
         fields[index].options.push("");
         renderOptions();
+        notifyChanged();
       });
       optDiv.appendChild(addOptBtn);
       card.appendChild(optDiv);
@@ -266,9 +288,11 @@
     fields.forEach(function (f, i) {
       container.appendChild(renderFieldCard(f, i));
     });
+    // #fields-empty: visible exactly when fields array is empty
     if (emptyState) {
       emptyState.style.display = fields.length === 0 ? "" : "none";
     }
+    notifyChanged();
   }
 
   function moveField(index, direction) {
@@ -285,6 +309,96 @@
     renderFields();
   }
 
+  // ── CSV column pickers ────────────────────────────────────────────────────
+
+  function sanitizeColumnName(h) {
+    return h.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40);
+  }
+
+  function populateColumnSelects(columns) {
+    var titleSel = document.getElementById("task-title-col");
+    var imageSel = document.getElementById("task-image-col");
+    if (!titleSel || !imageSel) return;
+
+    // Remember prior selections
+    var prevTitle = titleSel.value;
+    var prevImage = imageSel.value;
+
+    // Rebuild title select: options are the column names
+    titleSel.innerHTML = "";
+    columns.forEach(function (col) {
+      var opt = document.createElement("option");
+      opt.value = col;
+      opt.textContent = col;
+      titleSel.appendChild(opt);
+    });
+    // Default to first column, or restore prior if still present
+    if (columns.indexOf(prevTitle) !== -1) {
+      titleSel.value = prevTitle;
+    } else if (columns.length > 0) {
+      titleSel.value = columns[0];
+    }
+
+    // Rebuild image select: (none) first, then all columns
+    imageSel.innerHTML = "";
+    var noneOpt = document.createElement("option");
+    noneOpt.value = "";
+    noneOpt.textContent = "(none)";
+    imageSel.appendChild(noneOpt);
+    columns.forEach(function (col) {
+      var opt = document.createElement("option");
+      opt.value = col;
+      opt.textContent = col;
+      imageSel.appendChild(opt);
+    });
+    // Restore prior image selection if still present; otherwise keep (none)
+    if (prevImage && columns.indexOf(prevImage) !== -1) {
+      imageSel.value = prevImage;
+    } else {
+      imageSel.value = "";
+    }
+
+    notifyChanged();
+  }
+
+  var csvDebounceTimer = null;
+
+  function initCsvPicker() {
+    var csvEl = document.getElementById("tasks-csv");
+    var titleSel = document.getElementById("task-title-col");
+    var imageSel = document.getElementById("task-image-col");
+    if (!csvEl) return;
+
+    csvEl.addEventListener("input", function () {
+      clearTimeout(csvDebounceTimer);
+      csvDebounceTimer = setTimeout(function () {
+        var val = csvEl.value.trim();
+        if (!val) {
+          // Clear selects to default state
+          if (titleSel) {
+            titleSel.innerHTML = '<option value="">(first column)</option>';
+          }
+          if (imageSel) {
+            imageSel.innerHTML = '<option value="">(none)</option>';
+          }
+          notifyChanged();
+          return;
+        }
+        var firstLine = val.split("\n")[0];
+        var columns = firstLine.split(",").map(sanitizeColumnName).filter(function (c) { return c.length > 0; });
+        populateColumnSelects(columns);
+      }, 300);
+    });
+
+    // Wire change events on the selects themselves
+    if (titleSel) {
+      titleSel.addEventListener("change", function () { notifyChanged(); });
+    }
+    if (imageSel) {
+      imageSel.addEventListener("change", function () { notifyChanged(); });
+    }
+  }
+
   // ── Serialize ──────────────────────────────────────────────────────────────
 
   function buildDefinition() {
@@ -298,17 +412,30 @@
     var rpt = parseInt((document.getElementById("assignment-rpt") || {}).value || "3", 10) || 3;
 
     var taskColumns = [];
+    var taskTitleColumn = null;
+    var taskImageColumn = null;
+
     if (mode === "tasks") {
       var csvEl = document.getElementById("tasks-csv");
       if (csvEl && csvEl.value.trim()) {
         var firstLine = csvEl.value.trim().split("\n")[0];
-        taskColumns = firstLine.split(",").map(function (h) {
-          return h.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40);
-        });
+        taskColumns = firstLine.split(",").map(sanitizeColumnName).filter(function (c) { return c.length > 0; });
+      }
+
+      // Read from the column picker selects
+      var titleSel = document.getElementById("task-title-col");
+      var imageSel = document.getElementById("task-image-col");
+
+      if (titleSel && titleSel.value) {
+        taskTitleColumn = titleSel.value;
+      } else if (taskColumns.length > 0) {
+        taskTitleColumn = taskColumns[0];
+      }
+
+      if (imageSel && imageSel.value) {
+        taskImageColumn = imageSel.value;
       }
     }
-
-    var taskTitleColumn = taskColumns.length > 0 ? taskColumns[0] : null;
 
     return {
       slug: slug,
@@ -318,7 +445,7 @@
       responses_per_task: rpt,
       task_columns: taskColumns,
       task_title_column: taskTitleColumn,
-      task_image_column: null,
+      task_image_column: taskImageColumn,
       fields: fields.map(function (f) {
         var out = Object.assign({}, f);
         delete out._idManuallySet;
@@ -343,6 +470,7 @@
         fields.push(makeBlock(kind));
       }
       renderFields();
+      // notifyChanged is called inside renderFields()
     });
   }
 
@@ -358,11 +486,40 @@
       var isTasks = modeChecked && modeChecked.value === "tasks";
       if (tasksSection) tasksSection.style.display = isTasks ? "" : "none";
       if (rptLabel) rptLabel.style.display = isTasks ? "" : "none";
+      notifyChanged();
     }
     modeInputs.forEach(function (inp) {
       inp.addEventListener("change", update);
     });
     update();
+  }
+
+  // ── Live slug placeholder ─────────────────────────────────────────────────
+
+  function initSlugPlaceholder() {
+    var nameEl = document.getElementById("assignment-name");
+    var slugEl = document.getElementById("assignment-slug");
+    if (!nameEl || !slugEl) return;
+
+    nameEl.addEventListener("input", function () {
+      // Only update placeholder; explicit value always wins
+      var generated = slugify(nameEl.value);
+      slugEl.placeholder = generated || "my_assignment";
+      notifyChanged();
+    });
+
+    // Also notify when slug or instructions change
+    slugEl.addEventListener("input", function () { notifyChanged(); });
+
+    var instrEl = document.getElementById("assignment-instructions");
+    if (instrEl) {
+      instrEl.addEventListener("input", function () { notifyChanged(); });
+    }
+
+    var rptEl = document.getElementById("assignment-rpt");
+    if (rptEl) {
+      rptEl.addEventListener("input", function () { notifyChanged(); });
+    }
   }
 
   // ── Preview (inert in Task 1; Task 3 wires live refresh) ──────────────────
@@ -425,6 +582,8 @@
   document.addEventListener("DOMContentLoaded", function () {
     initPalette();
     initModeToggle();
+    initSlugPlaceholder();
+    initCsvPicker();
     initPreview();
     initFormSubmit();
     restoreInitial();
