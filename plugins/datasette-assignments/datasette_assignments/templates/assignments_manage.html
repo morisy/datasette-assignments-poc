@@ -56,6 +56,44 @@
 </form>
 {% endif %}
 
+{% if defn.mode == "tasks" %}
+<h2>Add tasks</h2>
+{% set added = request.args.get("added") %}
+{% if added %}
+<p class="message-info" style="background:#d4edda;border:1px solid #c3e6cb;padding:0.5rem 1rem;border-radius:4px;margin-bottom:1rem">
+  Added {{ added }} tasks.
+</p>
+{% endif %}
+<form method="post" action="{{ urls.path('/-/assignments/' ~ slug ~ '/add-tasks') }}">
+  <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
+  <p class="section-hint">Paste a CSV with the same column headers as the original task list, or upload a .csv file.</p>
+  <div class="csv-upload-row">
+    <label class="csv-upload-label" for="add-tasks-csv-file">Upload CSV file…
+      <input type="file" id="add-tasks-csv-file" accept=".csv,text/csv" hidden>
+    </label>
+    <span id="add-tasks-csv-file-name" class="section-hint"></span>
+  </div>
+  <textarea name="tasks_csv" id="add-tasks-csv" rows="8" style="width:100%;font-family:monospace"></textarea>
+  <button type="submit" style="margin-top:0.5em">Add tasks</button>
+</form>
+<script>
+(function () {
+  var fileInput = document.getElementById("add-tasks-csv-file");
+  var textarea = document.getElementById("add-tasks-csv");
+  var label = document.getElementById("add-tasks-csv-file-name");
+  if (!fileInput) return;
+  fileInput.addEventListener("change", function () {
+    var file = fileInput.files[0];
+    if (!file) return;
+    label.textContent = file.name;
+    var reader = new FileReader();
+    reader.onload = function (e) { textarea.value = e.target.result; };
+    reader.readAsText(file);
+  });
+})();
+</script>
+{% endif %}
+
 <h2>Responses <small>(latest 200)</small></h2>
 {% if responses %}
 <div style="overflow-x:auto">

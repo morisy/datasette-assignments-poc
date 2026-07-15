@@ -429,6 +429,67 @@ async def assignments_delete(datasette, request):
     return Response.redirect("/-/assignments")
 
 
+# ── Add tasks ─────────────────────────────────────────────────────────────────
+
+async def assignments_add_tasks(datasette, request):
+    slug = request.url_vars["slug"]
+    row = await _require_owner_or_root(datasette, request, slug)
+
+    if request.method != "POST":
+        return Response.redirect(f"/-/assignments/{slug}")
+
+    defn = row["definition"]
+    if defn.get("mode") != "tasks":
+        return Response.text("Not a task-list assignment", status=400)
+
+    post = await request.post_vars()
+    tasks_csv_text = post.get("tasks_csv", "")
+
+    if not tasks_csv_text.strip():
+        return Response.text("tasks_csv is required", status=400)
+
+    reader = csv.DictReader(io.StringIO(tasks_csv_text))
+    raw_headers = reader.fieldnames or []
+
+    # Sanitize headers exactly like the wizard
+    seen_headers: set = set()
+    sanitized_headers = []
+    for h in raw_headers:
+        try:
+            safe = sanitize_identifier(h, existing=tuple(seen_headers))
+        except DefinitionError:
+            safe = f"col_{len(sanitized_headers) + 1}"
+        seen_headers.add(safe)
+        sanitized_headers.append(safe)
+
+    # Compare as sets against stored task_columns
+    stored_cols = set(defn.get("task_columns") or [])
+    posted_cols = set(sanitized_headers)
+    if stored_cols != posted_cols:
+        missing = stored_cols - posted_cols
+        extra = posted_cols - stored_cols
+        parts = []
+        if missing:
+            parts.append(f"missing columns: {', '.join(sorted(missing))}")
+        if extra:
+            parts.append(f"extra columns: {', '.join(sorted(extra))}")
+        return Response.text(f"Column mismatch — {'; '.join(parts)}", status=400)
+
+    header_map = dict(zip(raw_headers, sanitized_headers))
+    task_rows = []
+    row_count = 0
+    for r in reader:
+        if row_count >= 10000:
+            return Response.text("CSV exceeds 10,000 row limit", status=400)
+        task_rows.append({header_map[k]: v for k, v in r.items() if k in header_map})
+        row_count += 1
+
+    if task_rows:
+        await insert_tasks(datasette, defn, task_rows)
+
+    return Response.redirect(f"/-/assignments/{slug}?added={len(task_rows)}")
+
+
 # ── Gallery (public) ──────────────────────────────────────────────────────────
 
 import re as _re

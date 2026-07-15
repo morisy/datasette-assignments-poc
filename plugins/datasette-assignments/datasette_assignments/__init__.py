@@ -37,6 +37,8 @@ def register_routes():
          views.assignments_delete),
         (r"^/-/assignments/(?P<slug>[a-z][a-z0-9_]{0,39})/edit$",
          views.assignments_edit),
+        (r"^/-/assignments/(?P<slug>[a-z][a-z0-9_]{0,39})/add-tasks$",
+         views.assignments_add_tasks),
         (r"^/-/assignments/(?P<slug>[a-z][a-z0-9_]{0,39})/gallery$",
          views.assignments_gallery),
         (r"^/-/assignments/(?P<slug>[a-z][a-z0-9_]{0,39})$",
