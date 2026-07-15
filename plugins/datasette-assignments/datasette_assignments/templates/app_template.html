@@ -210,6 +210,8 @@ const Q_PROGRESS = {{ q_progress | tojson }};
 const Q_NEXT_TASK = {{ q_next_task | tojson }};
 {% endif %}
 const MODE = DEFN.mode;
+const SLUG = {{ defn.slug | tojson }};
+const HAS_GALLERY = {{ 'true' if has_gallery else 'false' }};
 
 let currentTask = null;
 let totalCount = 0;
@@ -245,6 +247,56 @@ function showToast(msg, type) {
 function esc(str) {
   return String(str ?? "")
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function shareRow() {
+  var shareUrl = null;
+  var shareEl = "";
+  try {
+    var base = document.referrer;
+    if (!base) throw new Error("no referrer");
+    shareUrl = HAS_GALLERY
+      ? new URL("/-/assignments/" + SLUG + "/gallery", base).href
+      : base;
+  } catch (e) {
+    return "";
+  }
+  var escapedUrl = esc(shareUrl);
+  var galleryLink = HAS_GALLERY
+    ? `<a href="${escapedUrl}" style="margin-left:10px;font-size:13px;color:var(--accent)">See what&#39;s been found &rarr;</a>`
+    : "";
+  return `
+    <div id="share-row" style="margin-top:20px;padding:14px 18px;background:#fff;border:1px solid var(--rule);border-radius:var(--radius);text-align:left">
+      <div style="font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:8px">Share this assignment</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-secondary" style="font-size:13px;padding:6px 14px" onclick="copyShareLink('${escapedUrl}')">Copy link</button>
+        ${galleryLink}
+        <input id="share-url-input" type="text" readonly value="${escapedUrl}"
+               style="display:none;flex:1;font-size:12px;padding:5px 8px;min-width:180px">
+      </div>
+    </div>`;
+}
+
+function copyShareLink(url) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(function() {
+      showToast("Link copied", "ok");
+    }).catch(function() {
+      _fallbackCopy(url);
+    });
+  } else {
+    _fallbackCopy(url);
+  }
+}
+
+function _fallbackCopy(url) {
+  var inp = $("share-url-input");
+  if (inp) {
+    inp.style.display = "";
+    inp.value = url;
+    inp.select();
+    try { document.execCommand("copy"); showToast("Link copied", "ok"); } catch(e) {}
+  }
 }
 
 async function loadProgress() {
@@ -478,6 +530,7 @@ async function loadNextTask() {
         <p>${allDone
             ? "Every task has collected enough responses. Thank you!"
             : "You've covered every open task. Check back later or share the link."}</p>
+        ${shareRow()}
       </div>`;
     currentTask = null;
     return;
@@ -511,6 +564,7 @@ function showThankYou() {
       <h2>Thank you!</h2>
       <p>Your response has been recorded.</p>
       <button class="btn btn-secondary" style="margin-top:20px" onclick="renderFormMode()">Submit another</button>
+      ${shareRow()}
     </div>`;
 }
 

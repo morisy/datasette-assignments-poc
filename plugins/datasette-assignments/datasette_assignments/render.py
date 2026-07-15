@@ -25,11 +25,15 @@ def _safe_json(obj):
 
 def render_app_html(defn, db_name, preview=False):
     slug = defn["slug"]
+    has_gallery = any(
+        f.get("gallery") for f in defn.get("fields", []) if f.get("kind") == "input"
+    )
     template = _env.get_template("app_template.html")
     return template.render(
         defn=defn,
         db_name=db_name,
         preview=preview,
+        has_gallery=has_gallery,
         response_cols=response_columns(defn),
         defn_json=_safe_json(defn),
         sample_task_json=_safe_json(
