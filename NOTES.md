@@ -65,13 +65,19 @@ task-selection SQL, and the trigger all read one number.
 ## Apps live in internal.db — treat it as data
 
 App HTML, revisions, and settings live in the **internal database**
-(`--internal internal.db`), not in `datasette.yaml`. Under version control here,
+(`--internal internal.db` locally, `--internal /data/internal.db` in
+production — see `deploy/entrypoint.sh`), not in `datasette.yaml`. Under version control here,
 the repo's `apps/*.html` files are the source of truth and
 `scripts/sync_apps.py` upserts them (idempotently, as new revisions) into
 `internal.db`. If you edit an app in the datasette-apps web editor instead,
 copy the HTML back into `apps/` or the next sync will overwrite it. Note:
 `scripts/sync_apps.py` matches apps by NAME — renaming an app in the web editor
 breaks the match and the next sync will create a duplicate instead of updating.
+
+Updating the **production** app HTML: deploys never touch the live
+`/data/internal.db` (by design), so after changing `apps/*.html` either log in
+as root and paste the new HTML in the app editor, or run the sync against the
+volume from an ssh console.
 
 ## Write paths and app submission
 

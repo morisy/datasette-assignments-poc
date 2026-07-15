@@ -147,7 +147,12 @@ let toastTimer;
 const SEEN_KEY = "census_seen:" + location.pathname;
 let seen = loadSeen();
 function loadSeen() {
-  try { return new Set(JSON.parse(sessionStorage.getItem(SEEN_KEY) || "[]")); }
+  // Integer-coerce: these ids are interpolated into SQL, so a tampered or
+  // corrupted sessionStorage value must never reach the query.
+  try {
+    return new Set(JSON.parse(sessionStorage.getItem(SEEN_KEY) || "[]")
+      .filter(Number.isInteger));
+  }
   catch { return new Set(); }
 }
 function saveSeen() { try { sessionStorage.setItem(SEEN_KEY, JSON.stringify([...seen])); } catch {} }
