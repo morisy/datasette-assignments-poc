@@ -67,6 +67,7 @@
     .field-group { display: grid; gap: 6px; }
     label { font-size: 13px; font-weight: 600; color: var(--ink-mid); }
     .hint { font-size: 12px; font-weight: 400; color: var(--ink-soft); }
+    .req-mark { color: #c92a2a; margin-left: 2px; font-weight: 700; }
     .explain { font-size: 13px; color: var(--ink-mid); margin: 0; }
     input[type="text"], input[type="url"], input[type="email"],
     input[type="number"], input[type="date"], textarea, select {
@@ -292,6 +293,8 @@ function renderField(f) {
   const label = esc(f.label);
   const hint  = f.help ? `<span class="hint">${esc(f.help)}</span>` : "";
   const req   = f.required ? ' aria-required="true"' : "";
+  // Red asterisk on required fields; screen readers get aria-required instead.
+  const reqMark = f.required ? '<span class="req-mark" aria-hidden="true">*</span>' : "";
 
   let inputHtml = "";
   if (f.type === "text") {
@@ -315,7 +318,7 @@ function renderField(f) {
     ).join("");
     inputHtml = `<div class="checkbox-list" id="${id}">${checks}</div>`;
   } else if (f.type === "checkbox") {
-    inputHtml = `<label class="single-checkbox"><input type="checkbox" id="${id}"> ${label}</label>`;
+    inputHtml = `<label class="single-checkbox"><input type="checkbox" id="${id}"> ${label}${reqMark}</label>`;
   }
 
   let missingHtml = "";
@@ -329,7 +332,7 @@ function renderField(f) {
 
   const labelRow = f.type === "checkbox"
     ? ""  // label baked into checkbox html above
-    : `<label for="${id}">${label} ${hint}</label>`;
+    : `<label for="${id}">${label}${reqMark} ${hint}</label>`;
 
   return `
     <div class="field-group" id="group-${id}">

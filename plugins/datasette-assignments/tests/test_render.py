@@ -19,6 +19,8 @@ def test_tasks_mode_html_structure():
         assert needle in html, needle
     assert "topics" in html and "police" in html
     assert "<h3" in html  # header block rendered
+    # required fields carry the red-asterisk marker in the rendering code
+    assert "req-mark" in html
 
 
 def test_form_mode_html_structure():
