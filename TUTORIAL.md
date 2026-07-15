@@ -1,5 +1,7 @@
 # Build a Crowdsourcing Assignment with Datasette
 
+## What you'll build
+
 ![The finished assignment](docs/images/census-app.png)
 
 You are going to build a crowdsourcing page where anyone can help verify facts, with every response landing in a database you can search, facet, and export.
@@ -183,6 +185,8 @@ export DATASETTE_ROOT_PASSWORD_HASH=$(
 ```
 
 Replace `yourpassword` with something you will remember. Then start Datasette:
+
+(`assignments.db` is this repo's second example — the Document Review app's database, built by `scripts/setup_documents.py`. If you're working with just your own census-style database, leave it off the command.)
 
 ```bash
 .venv/bin/datasette serve census.db assignments.db \
@@ -567,7 +571,7 @@ SELECT t.city, t.state,
 FROM responses r
 JOIN tasks t ON t.id = r.task_id
 GROUP BY r.task_id
-HAVING COUNT(DISTINCT records_page_url) > 1
+HAVING COUNT(DISTINCT r.records_page_url) > 1
 ORDER BY distinct_urls DESC
 ```
 
