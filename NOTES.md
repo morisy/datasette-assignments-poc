@@ -105,6 +105,41 @@ is not a bug.
 - Fly.io has no `bos` region; this instance runs in `iad` (Ashburn). Check
   `fly platform regions` before assuming a region.
 
+## The assignments plugin (phase 2)
+
+`plugins/datasette-assignments` is a Datasette plugin that replaces the
+hand-crafted census workflow with a no-code wizard. Key internals worth
+knowing before you change anything:
+
+- **Registry lives in the internal DB.** `assignments_registry` in
+  `internal.db` tracks every assignment (slug, owner, app_id, definition
+  JSON). The plugin's `startup` hook creates it if absent.
+
+- **The execute-sql denial is what makes private responses real.** The plugin
+  registers a `permission_resources_sql` hook that (a) denies `execute-sql`
+  on the data DB for all non-root actors and (b) denies `view-table` on
+  `a_<slug>_responses` tables to anyone other than the assignment owner and
+  root. Without (a), any logged-in user could bypass (b) by running raw SQL.
+  Root is exempted in both cases so the admin can always inspect data.
+
+- **Apps are stored-query-only.** Each generated app can call only the
+  queries explicitly listed when the app was created (`submit_<slug>`,
+  `next_task_<slug>` if tasks mode, `progress_<slug>`). This is enforced by
+  datasette-apps; the app cannot issue arbitrary SQL.
+
+- **Stored queries are `is_trusted`.** `is_trusted=True` bypasses the
+  execute-sql permission check for that specific query when the app calls it.
+  This is what lets the progress and next_task read queries work for anonymous
+  contributors on an instance that denies raw SQL. The SQL is plugin-generated
+  and immutable, so the trust is safe.
+
+- **Uninstall removes all permission enforcement.** The
+  `permission_resources_sql` hook is only active while the plugin is
+  installed. If you uninstall, the `a_<slug>_responses` tables revert to
+  whatever the instance-level permissions allow — potentially public.
+  Always delete assignments through the plugin UI before uninstalling, or add
+  explicit deny blocks to `datasette.yaml`.
+
 ## Misc
 
 - DocumentCloud's API rejects Python's default urllib User-Agent — send a
