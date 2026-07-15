@@ -49,6 +49,8 @@ async def test_create_rolls_back_on_failure(tmp_path, monkeypatch):
         "SELECT name FROM sqlite_master WHERE name LIKE 'a_mayors%'")).rows
     assert leftover == []
     assert await ds.get_query("assignments_data", "submit_mayors") is None
+    assert await ds.get_query("assignments_data", "next_task_mayors") is None
+    assert await ds.get_query("assignments_data", "progress_mayors") is None
     assert await registry.get(ds, "mayors") is None
 
 

@@ -46,8 +46,10 @@ async def create_assignment(datasette, defn, actor):
                 datasette, db_name, q["name"], q["sql"],
                 is_write=q["is_write"],
                 is_private=False,
-                # is_trusted=True bypasses execute-write-sql permission checks,
-                # enabling anonymous submissions (the intended UX for assignments).
+                # is_trusted skips BOTH the execute-write-sql permission check
+                # and per-table write authorization — acceptable only because
+                # this SQL is plugin-generated and immutable, never user-supplied.
+                # It is what enables anonymous submissions.
                 is_trusted=q["is_write"],
             )
             created_queries.append(q["name"])
