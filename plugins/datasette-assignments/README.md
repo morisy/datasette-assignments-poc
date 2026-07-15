@@ -2,7 +2,7 @@
 
 A no-code builder for [MuckRock Assignments](https://www.muckrock.com/assignment/)-style crowdsourcing assignments, built on [Datasette Apps](https://datasette.io/blog/2026/datasette-apps/).
 
-Point it at a running Datasette instance, log in, and the wizard walks you through creating a form-based or task-based assignment. Every response lands in a SQLite table you can browse, query, and export — without writing any SQL or HTML.
+Point it at a running Datasette instance, log in, and the live builder studio walks you through creating a form-based or task-based assignment. Every response lands in a SQLite table you can browse, query, and export — without writing any SQL or HTML.
 
 **Requires:** `datasette>=1.0a35`, `datasette-apps>=0.1a3`
 
@@ -32,6 +32,19 @@ plugins:
 
 ---
 
+## Builder studio
+
+Navigate to `/-/assignments/new` while signed in. The studio opens as a two-column layout:
+
+- **Left — builder controls:** set the assignment name, pick a mode (Open form or Task list), add instructions, paste a tasks CSV, and add questions from the palette (Text, Long text, URL, Dropdown, Checkboxes, etc.).
+- **Right — live preview pane:** updates automatically as you build, showing exactly what contributors will see.
+
+When you are satisfied, click **Create assignment**. The plugin generates all database artifacts and redirects you to the manage page.
+
+![Builder studio — two-column layout with builder controls on the left and a live preview pane on the right](../../docs/images/builder-studio.png)
+
+---
+
 ## Modes
 
 ### Tasks mode
@@ -53,7 +66,7 @@ Use this when: you want an open-ended feedback form, a tip intake, or any other 
 | Route | Method | What it does |
 |---|---|---|
 | `/-/assignments` | GET | List assignments visible to the current actor |
-| `/-/assignments/new` | GET / POST | Wizard to create an assignment |
+| `/-/assignments/new` | GET / POST | Builder studio to create an assignment |
 | `/-/assignments/preview` | POST | Preview the generated app HTML |
 | `/-/assignments/<slug>` | GET | Manage page (owner or root only) |
 | `/-/assignments/<slug>/toggle-status` | POST | Open ↔ closed |
@@ -138,7 +151,7 @@ Each user can then log in and create assignments. Owners can only see and manage
 
 ## Definition shape
 
-The wizard submits a JSON definition. You can also POST one directly to `/-/assignments/new`. The shape:
+The builder studio submits a JSON definition. You can also POST one directly to `/-/assignments/new`. The shape:
 
 ```json
 {

@@ -23,7 +23,7 @@ each big US city's public records page, records email, and open data portal.
 | `plugins/datasette-assignments/` | No-code assignment builder plugin ([README](plugins/datasette-assignments/README.md)) |
 
 The `plugins/datasette-assignments` directory contains a Datasette plugin that
-lets you create and manage assignments through a point-and-click wizard rather
+lets you create and manage assignments through a live builder studio rather
 than writing SQL and HTML by hand. Install it with
 `pip install -e plugins/datasette-assignments`, log in as any authenticated
 user, and visit `/-/assignments/new`. Every assignment gets its own responses

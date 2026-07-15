@@ -37,9 +37,9 @@ Everything runs on one SQLite file per database. There is no Postgres, no Redis,
 > **The no-code way**
 >
 > If you want to create an assignment without writing SQL or HTML, the
-> `datasette-assignments` plugin adds a point-and-click wizard at
+> `datasette-assignments` plugin adds a live builder studio at
 > `/-/assignments/new`. Install it with
-> `pip install -e plugins/datasette-assignments`, log in, and the wizard
+> `pip install -e plugins/datasette-assignments`, log in, and the studio
 > walks you through both task-based and form-based assignments.
 > See the [plugin README](plugins/datasette-assignments/README.md) for the
 > full setup, privacy model, and route reference.
