@@ -48,7 +48,7 @@ Per input field: **Label**, **Help Text**, **Required**, **Gallery** (may-become
 - **Per-response `is_public` column, default 0.** The owner's management page lists responses with a per-row public/private toggle (the "make these public" column). Toggle is a plugin-internal write, owner-or-root only.
 - **Public view** per assignment: `a_<slug>_public`, selecting only Gallery-flagged fields of rows `WHERE is_public = 1`. Anonymous-readable; serves as the results/gallery page in plain Datasette.
 - Tasks tables and public views are world-readable. The phase-1 census (designed public, pre-plugin) is untouched.
-- **Verification item for the plan (not a blocker):** confirm the datasette-apps query bridge lets an anonymous actor invoke anonymous-allowed *stored* queries when `execute-sql` is denied on the database. Fallback if not: expose progress/next-task as public SQL views (aggregates only), which this design already half-uses.
+- **Verified 2026-07-14:** with `execute-sql` denied on a database, anonymous users get 403 on raw SQL and on permission-restricted tables, while anonymous-allowed stored queries still work (tested on 1.0a35). The datasette-apps bridge proxies stored-query calls as the real actor to the query's own endpoint, so this holds inside apps too. Privacy enforcement is via the `permission_resources_sql` plugin hook (deny `view-table` on `a_<slug>_responses` for non-owners, deny `execute-sql` on the assignments database for non-root) — config-free.
 
 ## What "Create" generates
 
@@ -60,7 +60,7 @@ All-or-nothing (cleanup on failure), in one configured writable database (settin
 4. Trigger `a_<slug>_mark_done` (task mode) — phase-1 pattern, reads config.
 5. Stored queries via core `datasette.stored_queries.add_query()`: `submit_<slug>` (is_write; INSERT respecting `status='open'` via a WHERE guard on a SELECT-based INSERT), `next_task_<slug>` + `progress_<slug>` (reads).
 6. The app via datasette-apps `Registry.create_stored_app(actor_id=creator, ...)`: HTML rendered from a Jinja template that generalizes `apps/census.html` (same look: progress bar, card, toast, skip [task mode], validation, closed-state); `is_private=0`; `sql_databases=[]` (stored queries only); `stored_queries` = the three above.
-7. A row in the plugin's registry table `assignments_registry` (in the plugin's own space in the same database): slug, name, mode, owner actor_id, definition JSON, created_at.
+7. A row in the plugin's registry table `assignments_registry` (in the **internal database**, like datasette-apps' own tables — required so the `permission_resources_sql` hook can join against ownership): slug, name, mode, owner actor_id, definition JSON, created_at.
 
 **Slugs:** derived from the name, strictly `^[a-z][a-z0-9_]{0,39}$`, uniqueness-checked — they become SQL identifiers; whitelist, never escape. CSV headers sanitized the same way (collisions → suffixed).
 
