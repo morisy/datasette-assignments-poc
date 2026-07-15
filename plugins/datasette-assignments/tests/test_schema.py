@@ -3,7 +3,9 @@ from datasette.app import Datasette
 
 from datasette_assignments.schema import (
     DefinitionError, sanitize_identifier, slugify, validate_definition,
+    build_ddl, build_queries, drop_ddl, response_columns,
 )
+import sqlite3
 
 
 @pytest.mark.asyncio
@@ -84,3 +86,85 @@ def test_validate_rejects_companion_on_wrong_type_and_dupe_ids():
             {"kind": "input", "type": "text", "id": "x", "label": "B", "help": "",
              "required": False, "gallery": False, "missing_companion": False,
              "options": []}]))
+
+
+def tasks_defn():
+    return validate_definition(make_defn(
+        slug="mayors", mode="tasks",
+        task_columns=["city", "state"], task_title_column="city",
+        fields=[
+            {"kind": "header", "text": "Find these"},
+            {"kind": "input", "type": "url", "id": "records_page",
+             "label": "Records page", "help": "", "required": True,
+             "gallery": True, "missing_companion": True, "options": []},
+            {"kind": "input", "type": "checkbox_group", "id": "topics",
+             "label": "Topics", "help": "", "required": False,
+             "gallery": False, "missing_companion": False,
+             "options": ["police", "budget"]},
+        ]))
+
+
+def test_ddl_executes_and_trigger_fires():
+    defn = tasks_defn()
+    conn = sqlite3.connect(":memory:")
+    for stmt in build_ddl(defn):
+        conn.execute(stmt)
+    conn.execute("INSERT INTO a_mayors_tasks (city, state) VALUES ('Boston','MA')")
+    conn.execute("INSERT INTO a_mayors_config (key, value) VALUES "
+                 "('responses_per_task','2'),('status','open')")
+    ins = ("INSERT INTO a_mayors_responses "
+           "(task_id, records_page, records_page_missing, topics) "
+           "VALUES (1, 'https://x.gov', 0, '[\"police\"]')")
+    conn.execute(ins)
+    assert conn.execute("SELECT status FROM a_mayors_tasks").fetchone()[0] == "pending"
+    conn.execute(ins)
+    assert conn.execute("SELECT status FROM a_mayors_tasks").fetchone()[0] == "done"
+
+
+def test_public_view_exposes_only_gallery_fields_of_public_rows():
+    defn = tasks_defn()
+    conn = sqlite3.connect(":memory:")
+    for stmt in build_ddl(defn):
+        conn.execute(stmt)
+    conn.execute("INSERT INTO a_mayors_tasks (city, state) VALUES ('Boston','MA')")
+    conn.execute("INSERT INTO a_mayors_responses "
+                 "(task_id, records_page, records_page_missing, topics, is_public) "
+                 "VALUES (1,'https://pub.gov',0,'[]',1), (1,'https://priv.gov',0,'[]',0)")
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(a_mayors_public)")]
+    assert "records_page" in cols and "topics" not in cols  # topics not gallery
+    rows = conn.execute("SELECT records_page FROM a_mayors_public").fetchall()
+    assert rows == [("https://pub.gov",)]
+
+
+def test_form_mode_has_no_tasks_or_trigger():
+    defn = validate_definition(make_defn(slug="tips"))
+    stmts = "\n".join(build_ddl(defn))
+    assert "a_tips_tasks" not in stmts
+    assert "TRIGGER" not in stmts
+    assert "a_tips_responses" in stmts
+    assert "a_tips_public" not in stmts  # only field has gallery=False
+
+
+def test_queries_shapes():
+    defn = tasks_defn()
+    q = build_queries(defn, "assignments_data")
+    assert q["submit"]["name"] == "submit_mayors" and q["submit"]["is_write"]
+    assert ":records_page" in q["submit"]["sql"]
+    assert " = 'open'" in q["submit"]["sql"]
+    assert "instr(" in q["next_task"]["sql"] and ":seen" in q["next_task"]["sql"]
+    assert not q["progress"]["is_write"]
+    form_q = build_queries(validate_definition(make_defn(slug="tips")), "assignments_data")
+    assert "next_task" not in form_q
+    assert ":task_id" not in form_q["submit"]["sql"]
+
+
+def test_drop_ddl_removes_everything():
+    defn = tasks_defn()
+    conn = sqlite3.connect(":memory:")
+    for stmt in build_ddl(defn):
+        conn.execute(stmt)
+    for stmt in drop_ddl("mayors", "tasks"):
+        conn.execute(stmt)
+    remaining = [r[0] for r in conn.execute(
+        "SELECT name FROM sqlite_master WHERE name LIKE 'a_mayors%'")]
+    assert remaining == []

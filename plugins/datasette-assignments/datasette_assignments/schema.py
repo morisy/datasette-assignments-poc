@@ -108,3 +108,133 @@ def validate_definition(defn):
     if errors:
         raise DefinitionError(errors)
     return d
+
+
+def _sql_type(field):
+    return {"number": "REAL", "checkbox": "INTEGER"}.get(field["type"], "TEXT")
+
+
+def _input_fields(defn):
+    return [f for f in defn["fields"] if f["kind"] == "input"]
+
+
+def response_columns(defn):
+    cols = []
+    for f in _input_fields(defn):
+        cols.append(f["id"])
+        if f.get("missing_companion"):
+            cols.append(f["id"] + "_missing")
+    return cols
+
+
+def build_ddl(defn):
+    slug, mode = defn["slug"], defn["mode"]
+    stmts = []
+    if mode == "tasks":
+        task_cols = ",\n    ".join(f"{c} TEXT" for c in defn["task_columns"])
+        stmts.append(f"""CREATE TABLE a_{slug}_tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    {task_cols},
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TEXT DEFAULT (datetime('now'))
+)""")
+    resp_cols = []
+    if mode == "tasks":
+        resp_cols.append(f"task_id INTEGER NOT NULL REFERENCES a_{slug}_tasks(id)")
+    for f in _input_fields(defn):
+        resp_cols.append(f"{f['id']} {_sql_type(f)}")
+        if f.get("missing_companion"):
+            resp_cols.append(f"{f['id']}_missing INTEGER NOT NULL DEFAULT 0")
+    cols_sql = ",\n    ".join(resp_cols)
+    stmts.append(f"""CREATE TABLE a_{slug}_responses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    {cols_sql},
+    is_public INTEGER NOT NULL DEFAULT 0,
+    submitted_at TEXT DEFAULT (datetime('now'))
+)""")
+    stmts.append(f"""CREATE TABLE a_{slug}_config (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+)""")
+    if mode == "tasks":
+        stmts.append(f"""CREATE TRIGGER a_{slug}_mark_done
+AFTER INSERT ON a_{slug}_responses
+BEGIN
+    UPDATE a_{slug}_tasks SET status = 'done'
+    WHERE id = NEW.task_id
+      AND (SELECT COUNT(*) FROM a_{slug}_responses
+           WHERE task_id = NEW.task_id)
+          >= (SELECT CAST(value AS INTEGER) FROM a_{slug}_config
+              WHERE key = 'responses_per_task');
+END""")
+    gallery_cols = [f["id"] for f in _input_fields(defn) if f.get("gallery")]
+    if gallery_cols:
+        gcols = ", ".join(gallery_cols)
+        stmts.append(f"""CREATE VIEW a_{slug}_public AS
+SELECT id, {gcols}, submitted_at FROM a_{slug}_responses WHERE is_public = 1""")
+    return stmts
+
+
+def drop_ddl(slug, mode):
+    stmts = [f"DROP VIEW IF EXISTS a_{slug}_public"]
+    if mode == "tasks":
+        stmts.append(f"DROP TRIGGER IF EXISTS a_{slug}_mark_done")
+    stmts.append(f"DROP TABLE IF EXISTS a_{slug}_responses")
+    stmts.append(f"DROP TABLE IF EXISTS a_{slug}_config")
+    if mode == "tasks":
+        stmts.append(f"DROP TABLE IF EXISTS a_{slug}_tasks")
+    return stmts
+
+
+def build_queries(defn, db_name):
+    slug, mode = defn["slug"], defn["mode"]
+    cols = response_columns(defn)
+    params = list(cols)
+    insert_cols = list(cols)
+    if mode == "tasks":
+        insert_cols.insert(0, "task_id")
+        params.insert(0, "task_id")
+    col_list = ", ".join(insert_cols)
+    select_list = ", ".join(f":{p}" for p in params)
+    # Single statement; refuses rows once the assignment is closed.
+    submit_sql = (
+        f"INSERT INTO a_{slug}_responses ({col_list})\n"
+        f"SELECT {select_list}\n"
+        f"WHERE (SELECT value FROM a_{slug}_config WHERE key = 'status') = 'open'"
+    )
+    queries = {
+        "submit": {"name": f"submit_{slug}", "sql": submit_sql, "is_write": True},
+    }
+    if mode == "tasks":
+        # :seen is a comma-joined id list ('' when empty); instr() matching
+        # avoids needing SQL array params.
+        queries["next_task"] = {
+            "name": f"next_task_{slug}",
+            "sql": (
+                f"SELECT t.id, {', '.join('t.' + c for c in defn['task_columns'])}\n"
+                f"FROM a_{slug}_tasks t\n"
+                f"WHERE (SELECT COUNT(*) FROM a_{slug}_responses r "
+                f"WHERE r.task_id = t.id)\n"
+                f"      < (SELECT CAST(value AS INTEGER) FROM a_{slug}_config "
+                f"WHERE key = 'responses_per_task')\n"
+                f"  AND instr(',' || :seen || ',', ',' || t.id || ',') = 0\n"
+                f"ORDER BY RANDOM() LIMIT 1"
+            ),
+            "is_write": False,
+        }
+        progress_sql = (
+            f"SELECT (SELECT COUNT(*) FROM a_{slug}_tasks) AS total,\n"
+            f"  (SELECT COUNT(*) FROM a_{slug}_tasks WHERE status='done') AS done,\n"
+            f"  (SELECT COUNT(*) FROM a_{slug}_responses) AS collected,\n"
+            f"  (SELECT CAST(value AS INTEGER) FROM a_{slug}_config "
+            f"WHERE key='responses_per_task') AS target,\n"
+            f"  (SELECT value FROM a_{slug}_config WHERE key='status') AS status"
+        )
+    else:
+        progress_sql = (
+            f"SELECT (SELECT COUNT(*) FROM a_{slug}_responses) AS collected,\n"
+            f"  (SELECT value FROM a_{slug}_config WHERE key='status') AS status"
+        )
+    queries["progress"] = {"name": f"progress_{slug}", "sql": progress_sql,
+                           "is_write": False}
+    return queries
