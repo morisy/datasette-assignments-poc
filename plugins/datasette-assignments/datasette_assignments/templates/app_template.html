@@ -246,12 +246,11 @@ function showToast(msg, type) {
 
 function esc(str) {
   return String(str ?? "")
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 function shareRow() {
   var shareUrl = null;
-  var shareEl = "";
   try {
     var base = document.referrer;
     if (!base) throw new Error("no referrer");
@@ -269,12 +268,23 @@ function shareRow() {
     <div id="share-row" style="margin-top:20px;padding:14px 18px;background:#fff;border:1px solid var(--rule);border-radius:var(--radius);text-align:left">
       <div style="font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:8px">Share this assignment</div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-secondary" style="font-size:13px;padding:6px 14px" onclick="copyShareLink('${escapedUrl}')">Copy link</button>
+        <button id="copy-share-btn" class="btn btn-secondary" style="font-size:13px;padding:6px 14px">Copy link</button>
         ${galleryLink}
         <input id="share-url-input" type="text" readonly value="${escapedUrl}"
                style="display:none;flex:1;font-size:12px;padding:5px 8px;min-width:180px">
       </div>
     </div>`;
+}
+
+function _attachShareBtn() {
+  var btn = $("copy-share-btn");
+  if (btn && !btn._shareAttached) {
+    btn._shareAttached = true;
+    btn.addEventListener("click", function() {
+      var url = ($("share-url-input") || {}).value || "";
+      copyShareLink(url);
+    });
+  }
 }
 
 function copyShareLink(url) {
@@ -293,7 +303,6 @@ function _fallbackCopy(url) {
   var inp = $("share-url-input");
   if (inp) {
     inp.style.display = "";
-    inp.value = url;
     inp.select();
     try { document.execCommand("copy"); showToast("Link copied", "ok"); } catch(e) {}
   }
@@ -536,6 +545,7 @@ async function loadNextTask() {
             : "You've covered every open task. Check back later or share the link."}</p>
         ${shareRow()}
       </div>`;
+    _attachShareBtn();
     currentTask = null;
     return;
   }
@@ -570,6 +580,7 @@ function showThankYou() {
       <button class="btn btn-secondary" style="margin-top:20px" onclick="renderFormMode()">Submit another</button>
       ${shareRow()}
     </div>`;
+  _attachShareBtn();
 }
 
 // ── Submit ───────────────────────────────────────────────────────────────────

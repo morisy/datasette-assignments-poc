@@ -137,3 +137,22 @@ def test_image_render_guarded_by_http_scheme():
     assert "startsWith(" in html or "http" in html
     # Verify the image rendering code checks the scheme
     assert "http://" in html or "https://" in html
+
+
+# ── Task 7 final-fix wave: XSS regression tests ──────────────────────────────
+
+def test_esc_escapes_single_quotes():
+    """esc() in generated app must replace ' with &#39; to prevent JS string break-out."""
+    defn = validate_definition(make_defn(slug="tips"))
+    html = render_app_html(defn, "assignments_data")
+    # The esc() function source must contain the &#39; replacement
+    assert ".replace(/'/g, \"&#39;\")" in html or "&#39;" in html, \
+        "esc() must escape single quotes via &#39;"
+
+
+def test_no_inline_onclick_copysharelink():
+    """onclick=\"copyShareLink( must not appear in generated HTML (XSS vector removed)."""
+    defn = validate_definition(make_defn(slug="tips"))
+    html = render_app_html(defn, "assignments_data")
+    assert 'onclick="copyShareLink(' not in html, \
+        "Inline onclick with URL splice is an XSS vector and must be removed"

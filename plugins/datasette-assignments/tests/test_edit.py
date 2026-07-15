@@ -122,12 +122,12 @@ async def test_edit_post_updates_name_and_label(tmp_path):
 
     # Regenerated app HTML (current revision) should contain the new label
     app_id = row.get("app_id", "")
-    if app_id:
-        from datasette_apps.registry import Registry as AppsRegistry
-        apps_registry = AppsRegistry(ds)
-        version = await apps_registry.get_current_version(app_id)
-        if version:
-            assert "Updated Label" in (version.get("html") or "")
+    assert app_id, "app_id must be set after edit"
+    from datasette_apps.registry import Registry as AppsRegistry
+    apps_registry = AppsRegistry(ds)
+    version = await apps_registry.get_current_version(app_id)
+    assert version, "current version must exist after edit"
+    assert "Updated Label" in (version.get("html") or "")
 
 
 @pytest.mark.asyncio

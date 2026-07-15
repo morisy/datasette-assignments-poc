@@ -2,6 +2,7 @@
 import csv
 import io
 import json
+import re as _re
 
 from datasette import Forbidden, NotFound, Response
 
@@ -524,8 +525,6 @@ async def assignments_add_tasks(datasette, request):
 
 
 # ── Gallery (public) ──────────────────────────────────────────────────────────
-
-import re as _re
 
 async def assignments_gallery(datasette, request):
     slug = request.url_vars["slug"]
