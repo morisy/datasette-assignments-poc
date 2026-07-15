@@ -25,9 +25,54 @@
   // name/slug/instructions input, CSV input, option edits, reorder/remove).
   // Task 3 subscribes its debounced preview render to this function.
 
+  var _previewDebounceTimer = null;
+  var _previewRequestCounter = 0;
+
   function notifyChanged() {
-    // Task 3 will wire the live preview here (debounced ~600ms).
-    // For now: no-op stub.
+    clearTimeout(_previewDebounceTimer);
+    _previewDebounceTimer = setTimeout(fetchPreview, 600);
+  }
+
+  function fetchPreview() {
+    var previewUrl = window.__previewUrl;
+    if (!previewUrl) return;
+
+    var csrfInput = document.querySelector('#assignment-form input[name="csrftoken"]');
+    var csrftoken = csrfInput ? csrfInput.value : "";
+    var definition = JSON.stringify(buildDefinition());
+
+    var counter = ++_previewRequestCounter;
+    var body = "csrftoken=" + encodeURIComponent(csrftoken) +
+               "&definition=" + encodeURIComponent(definition);
+
+    fetch(previewUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body,
+      credentials: "same-origin",
+    }).then(function (resp) {
+      if (counter !== _previewRequestCounter) return; // out-of-order
+      return resp.text().then(function (text) {
+        if (counter !== _previewRequestCounter) return; // check again after async
+        var frame = document.getElementById("preview-frame");
+        var note = document.getElementById("preview-note");
+        if (resp.ok) {
+          if (frame) {
+            frame.srcdoc = text;
+            frame.style.display = "";
+          }
+          if (note) note.textContent = "";
+        } else {
+          // Keep existing srcdoc; update note with first line of error
+          var firstLine = text.split("\n")[0].trim() || ("HTTP " + resp.status);
+          if (note) note.textContent = "Preview paused: " + firstLine;
+        }
+      });
+    }).catch(function (err) {
+      if (counter !== _previewRequestCounter) return;
+      var note = document.getElementById("preview-note");
+      if (note) note.textContent = "Preview paused: " + (err.message || "network error");
+    });
   }
 
   // ── Field factory ──────────────────────────────────────────────────────────
@@ -522,11 +567,11 @@
     }
   }
 
-  // ── Preview (inert in Task 1; Task 3 wires live refresh) ──────────────────
+  // ── Preview ──────────────────────────────────────────────────────────────────
 
   function initPreview() {
-    // Preview button removed; live preview wired in Task 3.
-    // The #preview-frame iframe and #preview-note are present in the DOM.
+    // Fire an immediate (non-debounced) render so the skeleton appears on load.
+    fetchPreview();
   }
 
   // ── Form submit serialization ──────────────────────────────────────────────
