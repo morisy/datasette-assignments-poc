@@ -35,6 +35,7 @@ async def test_builder_studio_structure(tmp_path):
         'type="radio" name="mode"', 'id="advanced"',
         'id="fields-empty"', 'palette-group',
         'id="task-title-col"', 'id="task-image-col"',
+        'id="tasks-csv-file"', 'type="file"',
     ]:
         assert needle in html, needle
     assert 'id="preview-btn"' not in html  # manual preview button removed

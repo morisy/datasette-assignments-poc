@@ -70,7 +70,13 @@
       <!-- Tasks CSV (hidden until tasks mode) -->
       <section id="tasks-section" style="display:none" class="builder-section">
         <h2 class="section-heading">Tasks CSV</h2>
-        <p class="section-hint">Paste CSV with headers — one row per task. Pick the title column below.</p>
+        <p class="section-hint">Paste CSV with headers — one row per task — or upload a .csv file. Pick the title column below.</p>
+        <div class="csv-upload-row">
+          <label class="csv-upload-label" for="tasks-csv-file">Upload CSV file…
+            <input type="file" id="tasks-csv-file" accept=".csv,text/csv" hidden>
+          </label>
+          <span id="csv-file-name" class="section-hint"></span>
+        </div>
         <textarea name="tasks_csv" id="tasks-csv" rows="8" style="width:100%;font-family:monospace"></textarea>
 
         <div class="field-group" style="margin-top:0.75rem">

@@ -417,6 +417,30 @@
 
   var csvDebounceTimer = null;
 
+  function initCsvUpload() {
+    var fileEl = document.getElementById("tasks-csv-file");
+    var csvEl = document.getElementById("tasks-csv");
+    var nameEl = document.getElementById("csv-file-name");
+    if (!fileEl || !csvEl) return;
+    fileEl.addEventListener("change", function () {
+      var file = fileEl.files && fileEl.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        csvEl.value = String(reader.result || "");
+        if (nameEl) nameEl.textContent = file.name + " loaded — edit below if needed.";
+        // Fire the same path as pasting: repopulates column pickers + preview.
+        csvEl.dispatchEvent(new Event("input", { bubbles: true }));
+      };
+      reader.onerror = function () {
+        if (nameEl) nameEl.textContent = "Couldn't read " + file.name + " — try pasting instead.";
+      };
+      reader.readAsText(file);
+      // Allow re-selecting the same file later.
+      fileEl.value = "";
+    });
+  }
+
   function initCsvPicker() {
     var csvEl = document.getElementById("tasks-csv");
     var titleSel = document.getElementById("task-title-col");
@@ -638,6 +662,7 @@
     initModeToggle();
     initSlugPlaceholder();
     initCsvPicker();
+    initCsvUpload();
     initPreview();
     initFormSubmit();
     restoreInitial();

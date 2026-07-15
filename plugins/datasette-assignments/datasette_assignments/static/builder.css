@@ -520,3 +520,24 @@
     animation: none !important;
   }
 }
+
+.csv-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.csv-upload-label {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 14px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-mid);
+  cursor: pointer;
+}
+.csv-upload-label:hover { border-color: var(--accent); color: var(--accent); }
+.csv-upload-label:focus-within { box-shadow: 0 0 0 3px rgba(59,91,219,0.12); }
