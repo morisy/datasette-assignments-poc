@@ -216,6 +216,7 @@ let doneCount = 0;
 let collected = 0;
 let target = DEFN.responses_per_task || 3;
 let toastTimer;
+let isClosed = false;
 
 const SEEN_KEY = "assignments_seen:" + DEFN.slug + ":" + location.pathname;
 let seen = loadSeen();
@@ -250,6 +251,7 @@ async function loadProgress() {
   const row = r.rows[0];
   if (!row) return;
   if (row.status && row.status !== "open") {
+    isClosed = true;
     $("main").innerHTML = `
       <div class="state">
         <div class="state-icon">🔒</div>
@@ -591,9 +593,8 @@ function toggleMissing(id) {
 
 async function main() {
   await loadProgress();
-  // If loadProgress found closed status it already rendered — check main content
-  if ($("main").querySelector(".state h2")
-      && $("main").querySelector(".state h2").textContent === "This assignment is closed") return;
+  // If loadProgress found closed status it already rendered
+  if (isClosed) return;
 
   if (MODE === "tasks") {
     await loadNextTask();
