@@ -192,7 +192,7 @@ window.datasette = {
       {% endif %}
     }
     if (name.indexOf("next_task_") === 0)
-      return Promise.resolve({rows: [{{ sample_task_json }}]});
+      return Promise.resolve({rows: [{{ sample_task_json | safe }}]});
     return Promise.resolve({rows: []});
   }
 };

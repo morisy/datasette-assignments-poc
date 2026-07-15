@@ -38,3 +38,18 @@ def test_preview_stub_precedes_app_script():
     html = render_app_html(tasks_defn(), "assignments_data", preview=True)
     assert "window.datasette = " in html
     assert html.index("window.datasette = ") < html.index("storedQuery(")
+
+
+def test_preview_stub_is_valid_javascript():
+    # Autoescape artifacts (&#34; etc.) or leftover Jinja syntax inside the
+    # stub script are JS syntax errors — the stub then silently never runs
+    # and the app dies at runtime with "datasette is not defined".
+    for defn in (tasks_defn(), validate_definition(make_defn(slug="tips"))):
+        html = render_app_html(defn, "assignments_data", preview=True)
+        assert "{{" not in html and "{%" not in html
+        start = html.index("window.datasette = ")
+        stub = html[start:html.index("</script>", start)]
+        assert "&#34;" not in stub and "&quot;" not in stub and "&amp;" not in stub
+        if defn["mode"] == "tasks":
+            # sample task JSON must be raw JSON, not HTML-entity-escaped
+            assert '{"id": 1' in stub
