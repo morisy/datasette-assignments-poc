@@ -1,21 +1,51 @@
-city,state
-Boston,MA
-Philadelphia,PA
-Chicago,IL
-Houston,TX
-Phoenix,AZ
-San Antonio,TX
-San Diego,CA
-Dallas,TX
-San Jose,CA
-Austin,TX
-Jacksonville,FL
-Fort Worth,TX
-Columbus,OH
-Charlotte,NC
-Indianapolis,IN
-San Francisco,CA
-Seattle,WA
-Denver,CO
-Nashville,TN
-Oklahoma City,OK
+city,state,website
+New York,NY,https://www.nyc.gov
+Los Angeles,CA,https://lacity.gov
+Chicago,IL,https://www.chicago.gov
+Houston,TX,https://www.houstontx.gov
+Phoenix,AZ,https://www.phoenix.gov
+Philadelphia,PA,https://www.phila.gov
+San Antonio,TX,https://www.sanantonio.gov
+San Diego,CA,https://www.sandiego.gov
+Dallas,TX,https://dallascityhall.com
+Jacksonville,FL,https://www.jacksonville.gov
+Austin,TX,https://www.austintexas.gov
+Fort Worth,TX,https://www.fortworthtexas.gov
+San Jose,CA,https://www.sanjoseca.gov
+Columbus,OH,https://www.columbus.gov
+Charlotte,NC,https://www.charlottenc.gov
+Indianapolis,IN,https://www.indy.gov
+San Francisco,CA,https://www.sf.gov
+Seattle,WA,https://www.seattle.gov
+Denver,CO,https://www.denvergov.org
+Oklahoma City,OK,https://www.okc.gov
+Nashville,TN,https://www.nashville.gov
+Washington,DC,https://dc.gov
+El Paso,TX,https://www.elpasotexas.gov
+Las Vegas,NV,https://www.lasvegasnevada.gov
+Boston,MA,https://www.boston.gov
+Detroit,MI,https://detroitmi.gov
+Portland,OR,https://www.portland.gov
+Louisville,KY,https://louisvilleky.gov
+Memphis,TN,https://www.memphistn.gov
+Baltimore,MD,https://www.baltimorecity.gov
+Milwaukee,WI,https://city.milwaukee.gov
+Albuquerque,NM,https://www.cabq.gov
+Tucson,AZ,https://www.tucsonaz.gov
+Fresno,CA,https://www.fresno.gov
+Sacramento,CA,https://www.cityofsacramento.gov
+Mesa,AZ,https://www.mesaaz.gov
+Kansas City,MO,https://www.kcmo.gov
+Atlanta,GA,https://www.atlantaga.gov
+Colorado Springs,CO,https://coloradosprings.gov
+Omaha,NE,https://www.cityofomaha.org
+Raleigh,NC,https://raleighnc.gov
+Miami,FL,https://www.miami.gov
+Long Beach,CA,https://www.longbeach.gov
+Virginia Beach,VA,https://virginiabeach.gov
+Oakland,CA,https://www.oaklandca.gov
+Minneapolis,MN,https://www.minneapolismn.gov
+Tulsa,OK,https://www.cityoftulsa.org
+Tampa,FL,https://www.tampa.gov
+Arlington,TX,https://www.arlingtontx.gov
+New Orleans,LA,https://nola.gov
