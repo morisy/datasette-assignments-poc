@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 
-{% block title %}New Assignment{% endblock %}
+{% block title %}{% if edit_mode %}Edit Assignment{% else %}New Assignment{% endif %}{% endblock %}
 
 {% block content %}
-<h1>New Assignment</h1>
+<h1>{% if edit_mode %}Edit Assignment{% else %}New Assignment{% endif %}</h1>
 
 {% if errors %}
 <div class="message-error">
@@ -13,9 +13,24 @@
 </div>
 {% endif %}
 
-<form id="assignment-form" method="post" action="{{ urls.path('/-/assignments/new') }}">
+{% if edit_mode and hand_edit_warning %}
+<div class="message-warning" style="background:#fff3cd;border:1px solid #ffc107;padding:0.75rem 1rem;margin-bottom:1rem;border-radius:4px">
+  <strong>Hand-edit warning:</strong> This app's HTML was customized by hand; saving will overwrite those edits.
+</div>
+{% endif %}
+
+<form id="assignment-form" method="post" action="{{ urls.path('/-/assignments/' ~ slug ~ '/edit') if edit_mode else urls.path('/-/assignments/new') }}">
   <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
   <input type="hidden" id="definition-json" name="definition" value="{{ definition_json | e }}">
+
+  {% if edit_mode and confirm_overwrite_needed %}
+  <div style="margin-bottom:1rem">
+    <label>
+      <input type="checkbox" name="confirm_overwrite" value="1">
+      I understand this will overwrite hand-edited HTML
+    </label>
+  </div>
+  {% endif %}
 
   <div class="studio">
 
@@ -31,6 +46,7 @@
           <input type="text" id="assignment-name" placeholder="My Assignment">
         </div>
 
+        {% if not edit_mode %}
         <div class="field-group">
           <label>Mode</label>
           <div class="mode-cards">
@@ -46,12 +62,14 @@
             </label>
           </div>
         </div>
+        {% endif %}
 
         <div class="field-group">
           <label for="assignment-instructions">Instructions</label>
           <textarea id="assignment-instructions" rows="3"></textarea>
         </div>
 
+        {% if not edit_mode %}
         <details id="advanced">
           <summary>Advanced</summary>
           <div class="advanced-inner">
@@ -65,8 +83,14 @@
             </div>
           </div>
         </details>
+        {% else %}
+        <div class="field-group">
+          <p class="section-hint">Slug: <code>{{ slug }}</code> (immutable)</p>
+        </div>
+        {% endif %}
       </section>
 
+      {% if not edit_mode %}
       <!-- Tasks CSV (hidden until tasks mode) -->
       <section id="tasks-section" style="display:none" class="builder-section">
         <h2 class="section-heading">Tasks CSV</h2>
@@ -92,11 +116,13 @@
           </select>
         </div>
       </section>
+      {% endif %}
 
       <!-- Fields -->
       <section class="builder-section">
         <h2 class="section-heading">Questions</h2>
 
+        {% if not edit_mode %}
         <!-- Palette -->
         <div class="palette" aria-label="Add fields">
           <div class="palette-group">
@@ -120,6 +146,9 @@
             <button type="button" data-kind="paragraph">+ Paragraph</button>
           </div>
         </div>
+        {% else %}
+        <p class="section-hint">Structure is locked. You can edit labels, help text, and add options to dropdown/checkbox fields.</p>
+        {% endif %}
 
         <!-- Empty state -->
         <div id="fields-empty" class="fields-empty">
@@ -131,7 +160,12 @@
 
       <!-- Submit -->
       <div class="form-actions">
+        {% if edit_mode %}
+        <button type="submit" class="btn btn-primary">Save changes</button>
+        <a href="{{ urls.path('/-/assignments/' ~ slug) }}" class="btn">Cancel</a>
+        {% else %}
         <button type="submit" class="btn btn-primary">Create assignment</button>
+        {% endif %}
       </div>
 
     </div><!-- /.studio-builder -->
@@ -154,5 +188,6 @@
 <script>
 window.__previewUrl = {{ urls.path('/-/assignments/preview') | tojson }};
 window.__initialDefinition = {{ definition_json | tojson if definition_json else 'null' }};
+window.__editMode = {{ 'true' if edit_mode else 'false' }};
 </script>
 {% endblock %}

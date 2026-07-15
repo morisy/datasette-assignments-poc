@@ -110,6 +110,7 @@
   var OPTION_TYPES = ["select", "checkbox_group"];
 
   function renderFieldCard(field, index) {
+    var editMode = !!window.__editMode;
     var card = document.createElement("div");
     card.className = "field-card";
     card.dataset.index = index;
@@ -117,42 +118,53 @@
     var header = document.createElement("div");
     header.className = "field-header";
 
-    // Type badge
-    var badge = document.createElement("span");
-    badge.className = "field-type-badge";
-    if (field.kind === "input") {
-      badge.textContent = field.type;
+    // Type badge / static type+id display
+    if (editMode && field.kind === "input") {
+      // In edit mode, show type and id as static text (not editable)
+      var staticInfo = document.createElement("span");
+      staticInfo.className = "field-type-badge";
+      staticInfo.textContent = field.type + " · id: " + field.id;
+      header.appendChild(staticInfo);
     } else {
-      badge.textContent = field.kind;
+      var badge = document.createElement("span");
+      badge.className = "field-type-badge";
+      if (field.kind === "input") {
+        badge.textContent = field.type;
+      } else {
+        badge.textContent = field.kind;
+      }
+      header.appendChild(badge);
     }
-    header.appendChild(badge);
 
-    // Controls: move up / move down / remove
-    var controls = document.createElement("div");
-    controls.className = "field-controls";
+    if (!editMode) {
+      // Controls: move up / move down / remove (hidden in edit mode)
+      var controls = document.createElement("div");
+      controls.className = "field-controls";
 
-    var btnUp = document.createElement("button");
-    btnUp.type = "button";
-    btnUp.textContent = "↑";
-    btnUp.title = "Move up";
-    btnUp.addEventListener("click", function () { moveField(index, -1); });
+      var btnUp = document.createElement("button");
+      btnUp.type = "button";
+      btnUp.textContent = "↑";
+      btnUp.title = "Move up";
+      btnUp.addEventListener("click", function () { moveField(index, -1); });
 
-    var btnDown = document.createElement("button");
-    btnDown.type = "button";
-    btnDown.textContent = "↓";
-    btnDown.title = "Move down";
-    btnDown.addEventListener("click", function () { moveField(index, 1); });
+      var btnDown = document.createElement("button");
+      btnDown.type = "button";
+      btnDown.textContent = "↓";
+      btnDown.title = "Move down";
+      btnDown.addEventListener("click", function () { moveField(index, 1); });
 
-    var btnRemove = document.createElement("button");
-    btnRemove.type = "button";
-    btnRemove.textContent = "✕";
-    btnRemove.title = "Remove";
-    btnRemove.addEventListener("click", function () { removeField(index); });
+      var btnRemove = document.createElement("button");
+      btnRemove.type = "button";
+      btnRemove.textContent = "✕";
+      btnRemove.title = "Remove";
+      btnRemove.addEventListener("click", function () { removeField(index); });
 
-    controls.appendChild(btnUp);
-    controls.appendChild(btnDown);
-    controls.appendChild(btnRemove);
-    header.appendChild(controls);
+      controls.appendChild(btnUp);
+      controls.appendChild(btnDown);
+      controls.appendChild(btnRemove);
+      header.appendChild(controls);
+    }
+
     card.appendChild(header);
 
     if (field.kind === "header" || field.kind === "paragraph") {
@@ -188,30 +200,33 @@
     inpLabel.placeholder = "Field label";
     inpLabel.addEventListener("input", function () {
       fields[index].label = inpLabel.value;
-      // Auto-set id from label if id is empty or was auto-generated
-      if (!fields[index]._idManuallySet) {
+      // Auto-set id from label if id is empty or was auto-generated (new mode only)
+      if (!editMode && !fields[index]._idManuallySet) {
         fields[index].id = generateIdForIndex(inpLabel.value, index);
-        inpId.value = fields[index].id;
+        if (inpId) inpId.value = fields[index].id;
       }
       notifyChanged();
     });
     lblLabel.appendChild(inpLabel);
     row1.appendChild(lblLabel);
 
-    // ID
-    var lblId = document.createElement("label");
-    lblId.textContent = "ID (column name)";
-    var inpId = document.createElement("input");
-    inpId.type = "text";
-    inpId.value = field.id || "";
-    inpId.placeholder = "field_id";
-    inpId.addEventListener("input", function () {
-      fields[index].id = inpId.value;
-      fields[index]._idManuallySet = true;
-      notifyChanged();
-    });
-    lblId.appendChild(inpId);
-    row1.appendChild(lblId);
+    var inpId = null;
+    if (!editMode) {
+      // ID (editable in new mode only)
+      var lblId = document.createElement("label");
+      lblId.textContent = "ID (column name)";
+      inpId = document.createElement("input");
+      inpId.type = "text";
+      inpId.value = field.id || "";
+      inpId.placeholder = "field_id";
+      inpId.addEventListener("input", function () {
+        fields[index].id = inpId.value;
+        fields[index]._idManuallySet = true;
+        notifyChanged();
+      });
+      lblId.appendChild(inpId);
+      row1.appendChild(lblId);
+    }
 
     card.appendChild(row1);
 
@@ -242,10 +257,14 @@
       var cb = document.createElement("input");
       cb.type = "checkbox";
       cb.checked = !!field[propName];
-      cb.addEventListener("change", function () {
-        fields[index][propName] = cb.checked;
-        notifyChanged();
-      });
+      if (editMode) {
+        cb.disabled = true;
+      } else {
+        cb.addEventListener("change", function () {
+          fields[index][propName] = cb.checked;
+          notifyChanged();
+        });
+      }
       lbl.appendChild(cb);
       lbl.appendChild(document.createTextNode(" " + labelText));
       if (hint) {
@@ -268,6 +287,9 @@
 
     // Options editor (for select / checkbox_group)
     if (OPTION_TYPES.indexOf(field.type) !== -1) {
+      // Track the number of "stored" options (pre-existing in edit mode)
+      var storedOptionCount = editMode ? (field.options || []).length : 0;
+
       var optDiv = document.createElement("div");
       optDiv.className = "options-editor";
       var optTitle = document.createElement("strong");
@@ -280,25 +302,35 @@
       function renderOptions() {
         optList.innerHTML = "";
         (fields[index].options || []).forEach(function (opt, oi) {
+          var isExisting = editMode && oi < storedOptionCount;
           var oRow = document.createElement("div");
           oRow.className = "option-row";
           var oInp = document.createElement("input");
           oInp.type = "text";
           oInp.value = opt;
-          oInp.addEventListener("input", function () {
-            fields[index].options[oi] = oInp.value;
-            notifyChanged();
-          });
-          var oRemove = document.createElement("button");
-          oRemove.type = "button";
-          oRemove.textContent = "✕";
-          oRemove.addEventListener("click", function () {
-            fields[index].options.splice(oi, 1);
-            renderOptions();
-            notifyChanged();
-          });
+          if (isExisting) {
+            // Existing options are read-only in edit mode
+            oInp.readOnly = true;
+            oInp.style.background = "#f5f5f5";
+            oInp.style.color = "#666";
+          } else {
+            oInp.addEventListener("input", function () {
+              fields[index].options[oi] = oInp.value;
+              notifyChanged();
+            });
+          }
           oRow.appendChild(oInp);
-          oRow.appendChild(oRemove);
+          if (!isExisting) {
+            var oRemove = document.createElement("button");
+            oRemove.type = "button";
+            oRemove.textContent = "✕";
+            oRemove.addEventListener("click", function () {
+              fields[index].options.splice(oi, 1);
+              renderOptions();
+              notifyChanged();
+            });
+            oRow.appendChild(oRemove);
+          }
           optList.appendChild(oRow);
         });
       }

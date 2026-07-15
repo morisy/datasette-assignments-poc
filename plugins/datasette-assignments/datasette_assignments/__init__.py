@@ -35,6 +35,8 @@ def register_routes():
          views.assignments_response_public),
         (r"^/-/assignments/(?P<slug>[a-z][a-z0-9_]{0,39})/delete$",
          views.assignments_delete),
+        (r"^/-/assignments/(?P<slug>[a-z][a-z0-9_]{0,39})/edit$",
+         views.assignments_edit),
         (r"^/-/assignments/(?P<slug>[a-z][a-z0-9_]{0,39})$",
          views.assignments_manage),
     ]

@@ -186,6 +186,86 @@ def drop_ddl(slug, mode):
     return stmts
 
 
+def merge_editable(stored, posted):
+    """Merge only editable fields from posted definition into stored definition.
+
+    Editable: name, instructions, field labels, help text, header/paragraph text,
+    and adding options to select/checkbox_group (existing options are preserved).
+
+    Raises DefinitionError if posted contains structural changes:
+    - different mode
+    - different slug
+    - different field count or field ids/types do not match stored
+    """
+    errors = []
+
+    # Structural checks
+    if posted.get("mode") != stored.get("mode"):
+        errors.append("mode cannot be changed in edit mode")
+    if posted.get("slug") != stored.get("slug"):
+        errors.append("slug cannot be changed in edit mode")
+
+    stored_fields = stored.get("fields") or []
+    posted_fields = posted.get("fields") or []
+
+    if len(stored_fields) != len(posted_fields):
+        errors.append(
+            f"field count cannot change in edit mode "
+            f"(stored {len(stored_fields)}, posted {len(posted_fields)})"
+        )
+
+    if errors:
+        raise DefinitionError(errors)
+
+    # Validate field-level structural immutability
+    for i, (sf, pf) in enumerate(zip(stored_fields, posted_fields)):
+        if sf.get("kind") != pf.get("kind"):
+            errors.append(f"field[{i}] kind cannot change in edit mode")
+        if sf.get("kind") == "input":
+            if sf.get("id") != pf.get("id"):
+                errors.append(
+                    f"field id cannot change in edit mode "
+                    f"(stored {sf.get('id')!r}, posted {pf.get('id')!r})"
+                )
+            if sf.get("type") != pf.get("type"):
+                errors.append(
+                    f"field {sf.get('id')!r} type cannot change in edit mode"
+                )
+
+    if errors:
+        raise DefinitionError(errors)
+
+    # Build merged definition: start from stored, apply editable fields
+    merged = dict(stored)
+    merged["name"] = posted.get("name") or stored.get("name")
+    merged["instructions"] = posted.get("instructions", stored.get("instructions", ""))
+
+    merged_fields = []
+    for sf, pf in zip(stored_fields, posted_fields):
+        mf = dict(sf)
+        if sf.get("kind") in ("header", "paragraph"):
+            # Allow updating text of header/paragraph blocks
+            mf["text"] = pf.get("text", sf.get("text", ""))
+        else:
+            # input field: allow label and help updates
+            mf["label"] = pf.get("label", sf.get("label", ""))
+            mf["help"] = pf.get("help", sf.get("help", ""))
+            # For option-based types: allow ADDING options (not removing existing)
+            if sf.get("type") in OPTION_TYPES:
+                stored_opts = sf.get("options") or []
+                posted_opts = pf.get("options") or []
+                # Preserve all stored options plus any new ones appended
+                # Existing options at their original indices are read-only
+                merged_opts = list(stored_opts)
+                for opt in posted_opts[len(stored_opts):]:
+                    merged_opts.append(opt)
+                mf["options"] = merged_opts
+        merged_fields.append(mf)
+
+    merged["fields"] = merged_fields
+    return merged
+
+
 def build_queries(defn, db_name):
     slug, mode = defn["slug"], defn["mode"]
     cols = response_columns(defn)

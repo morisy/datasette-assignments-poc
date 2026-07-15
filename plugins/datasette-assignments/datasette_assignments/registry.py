@@ -52,6 +52,14 @@ async def list_for(datasette, actor):
     return [_row_to_dict(r) for r in result.rows]
 
 
+async def update_definition(datasette, slug, defn):
+    """Update the stored definition and name for an existing assignment."""
+    await datasette.get_internal_database().execute_write(
+        "UPDATE assignments_registry SET definition=?, name=? WHERE slug=?",
+        [json.dumps(defn), defn["name"], slug],
+    )
+
+
 async def delete(datasette, slug):
     await datasette.get_internal_database().execute_write(
         "DELETE FROM assignments_registry WHERE slug = ?", [slug])

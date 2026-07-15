@@ -3,7 +3,7 @@ from datasette.app import Datasette
 
 from datasette_assignments.schema import (
     DefinitionError, sanitize_identifier, slugify, validate_definition,
-    build_ddl, build_queries, drop_ddl, response_columns,
+    build_ddl, build_queries, drop_ddl, response_columns, merge_editable,
 )
 import sqlite3
 
@@ -168,3 +168,77 @@ def test_drop_ddl_removes_everything():
     remaining = [r[0] for r in conn.execute(
         "SELECT name FROM sqlite_master WHERE name LIKE 'a_mayors%'")]
     assert remaining == []
+
+
+# ── merge_editable tests ──────────────────────────────────────────────────────
+
+def test_merge_editable_accepts_label_and_help_changes():
+    """merge_editable allows updating label, help, and name/instructions."""
+    stored = make_defn(slug="survey", name="Old Name")
+    stored["fields"] = [
+        {"kind": "input", "type": "text", "id": "answer", "label": "Old Label",
+         "help": "", "required": True, "gallery": False,
+         "missing_companion": False, "options": []},
+    ]
+    posted = dict(stored)
+    posted["name"] = "New Name"
+    posted["instructions"] = "New instructions"
+    posted["fields"] = [
+        {"kind": "input", "type": "text", "id": "answer", "label": "New Label",
+         "help": "Some help", "required": True, "gallery": False,
+         "missing_companion": False, "options": []},
+    ]
+    merged = merge_editable(stored, posted)
+    assert merged["name"] == "New Name"
+    assert merged["instructions"] == "New instructions"
+    assert merged["fields"][0]["label"] == "New Label"
+    assert merged["fields"][0]["help"] == "Some help"
+    # Structural fields unchanged
+    assert merged["slug"] == "survey"
+    assert merged["fields"][0]["id"] == "answer"
+    assert merged["fields"][0]["type"] == "text"
+
+
+def test_merge_editable_rejects_field_id_rename():
+    """merge_editable raises DefinitionError when posted field id differs."""
+    stored = make_defn(slug="survey")
+    stored["fields"] = [
+        {"kind": "input", "type": "text", "id": "answer", "label": "Label",
+         "help": "", "required": True, "gallery": False,
+         "missing_companion": False, "options": []},
+    ]
+    posted = dict(stored)
+    posted["fields"] = [
+        {"kind": "input", "type": "text", "id": "renamed", "label": "Label",
+         "help": "", "required": True, "gallery": False,
+         "missing_companion": False, "options": []},
+    ]
+    with pytest.raises(DefinitionError):
+        merge_editable(stored, posted)
+
+
+def test_merge_editable_rejects_mode_change():
+    """merge_editable raises DefinitionError when mode is different."""
+    stored = make_defn(slug="survey", mode="form")
+    posted = dict(stored)
+    posted["mode"] = "tasks"
+    with pytest.raises(DefinitionError):
+        merge_editable(stored, posted)
+
+
+def test_merge_editable_allows_adding_options():
+    """merge_editable allows new options to be added to select/checkbox_group."""
+    stored = make_defn(slug="survey")
+    stored["fields"] = [
+        {"kind": "input", "type": "select", "id": "pick", "label": "Pick",
+         "help": "", "required": False, "gallery": False,
+         "missing_companion": False, "options": ["a", "b"]},
+    ]
+    posted = dict(stored)
+    posted["fields"] = [
+        {"kind": "input", "type": "select", "id": "pick", "label": "Pick",
+         "help": "", "required": False, "gallery": False,
+         "missing_companion": False, "options": ["a", "b", "c"]},
+    ]
+    merged = merge_editable(stored, posted)
+    assert merged["fields"][0]["options"] == ["a", "b", "c"]

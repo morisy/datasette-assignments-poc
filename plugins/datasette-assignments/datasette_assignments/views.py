@@ -9,7 +9,7 @@ from . import get_data_db_name
 from . import registry
 from .creator import CreationError, create_assignment, destroy_assignment, insert_tasks, seed_config
 from .render import render_app_html
-from .schema import DefinitionError, sanitize_identifier, slugify, validate_definition
+from .schema import DefinitionError, merge_editable, sanitize_identifier, slugify, validate_definition
 
 
 def _actor_id(request):
@@ -128,6 +128,102 @@ async def assignments_new(datasette, request):
                 "errors": errors,
                 "definition_json": definition_json,
                 "db_name": db_name,
+            },
+            request=request,
+        )
+    )
+
+
+# ── Edit (copy-edits only) ────────────────────────────────────────────────────
+
+async def assignments_edit(datasette, request):
+    slug = request.url_vars["slug"]
+    row = await _require_owner_or_root(datasette, request, slug)
+    db_name = get_data_db_name(datasette)
+    stored_defn = row["definition"]
+    errors = []
+    definition_json = ""
+    hand_edit_warning = False
+    confirm_overwrite_needed = False
+
+    # Detect hand-edit: compare current app HTML to what we'd generate
+    app_id = row.get("app_id", "")
+    current_html = None
+    if app_id:
+        try:
+            from datasette_apps.registry import Registry as AppsRegistry
+            apps_registry = AppsRegistry(datasette)
+            version = await apps_registry.get_current_version(app_id)
+            if version:
+                current_html = version.get("html", "")
+        except Exception:
+            current_html = None
+
+    if current_html is not None:
+        expected_html = render_app_html(stored_defn, db_name)
+        if current_html != expected_html:
+            hand_edit_warning = True
+            confirm_overwrite_needed = True
+
+    if request.method == "POST":
+        post = await request.post_vars()
+        definition_json = post.get("definition", "")
+
+        # Hand-edit guard: require confirm_overwrite if needed
+        if confirm_overwrite_needed and not post.get("confirm_overwrite"):
+            errors.append(
+                "This app's HTML was customized by hand; check the box to confirm overwrite."
+            )
+
+        if not errors:
+            try:
+                raw_posted = json.loads(definition_json) if definition_json else {}
+            except (json.JSONDecodeError, ValueError) as exc:
+                errors.append(f"Invalid JSON: {exc}")
+                raw_posted = {}
+
+        if not errors:
+            try:
+                merged = merge_editable(stored_defn, raw_posted)
+                validated = validate_definition(merged)
+                # Update registry
+                await registry.update_definition(datasette, slug, validated)
+                # Regenerate the app HTML
+                new_html = render_app_html(validated, db_name)
+                if app_id:
+                    try:
+                        from datasette_apps.registry import Registry as AppsRegistry
+                        apps_registry = AppsRegistry(datasette)
+                        await apps_registry.update_stored_app(
+                            app_id,
+                            validated["name"],
+                            validated.get("instructions", ""),
+                            new_html,
+                            actor_id=_actor_id(request),
+                        )
+                    except Exception:
+                        pass  # best-effort; registry already updated
+                return Response.redirect(f"/-/assignments/{slug}")
+            except DefinitionError as exc:
+                errors = exc.errors
+            except Exception as exc:
+                errors = [str(exc)]
+
+        definition_json = definition_json or json.dumps(stored_defn, indent=2)
+    else:
+        definition_json = json.dumps(stored_defn, indent=2)
+
+    return Response.html(
+        await datasette.render_template(
+            "assignments_new.html",
+            {
+                "errors": errors,
+                "definition_json": definition_json,
+                "db_name": db_name,
+                "edit_mode": True,
+                "slug": slug,
+                "hand_edit_warning": hand_edit_warning,
+                "confirm_overwrite_needed": confirm_overwrite_needed,
             },
             request=request,
         )
