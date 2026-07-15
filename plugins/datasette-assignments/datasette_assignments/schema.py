@@ -263,7 +263,25 @@ def merge_editable(stored, posted):
                         f"options is allowed)"
                     )
                 else:
-                    mf["options"] = list(posted_opts)
+                    appended = posted_opts[len(stored_opts):]
+                    seen_opts = set(stored_opts)
+                    opt_errors = []
+                    for opt in appended:
+                        if not isinstance(opt, str) or not opt:
+                            opt_errors.append(
+                                f"field {sf.get('id')!r}: appended options must "
+                                f"be non-empty strings (got {opt!r})"
+                            )
+                        elif opt in seen_opts:
+                            opt_errors.append(
+                                f"field {sf.get('id')!r}: duplicate option {opt!r}"
+                            )
+                        else:
+                            seen_opts.add(opt)
+                    if opt_errors:
+                        errors.extend(opt_errors)
+                    else:
+                        mf["options"] = list(posted_opts)
         merged_fields.append(mf)
 
     if errors:

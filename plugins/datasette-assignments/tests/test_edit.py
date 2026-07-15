@@ -83,7 +83,7 @@ async def test_edit_get_returns_200_for_owner(tmp_path):
     assert r.status_code == 200
     # Page should contain edit mode signals
     assert b"survey" in r.content
-    assert b"__editMode" in r.content
+    assert b"__editMode = true" in r.content
 
 
 @pytest.mark.asyncio
@@ -132,15 +132,17 @@ async def test_edit_post_updates_name_and_label(tmp_path):
 
 @pytest.mark.asyncio
 async def test_edit_post_rejects_structural_changes(tmp_path):
-    """POST that changes field id or type is rejected with 400."""
+    """POST that changes field id or type is rejected — form re-rendered (200) with error text."""
     ds = await build_instance(tmp_path)
     bad = edited_defn()
     bad["fields"][0]["id"] = "renamed_id"  # structural change: id rename
     r = await signed_in_post(ds, "/-/assignments/survey/edit", {
         "definition": json.dumps(bad),
     })
-    # Server should return 400 or re-render form with errors
-    assert r.status_code in (400, 200)
+    # merge_editable raises DefinitionError → view re-renders the edit form (200)
+    assert r.status_code == 200
+    # The error message should mention the id / field change
+    assert b"field id cannot change" in r.content or b"id" in r.content
     # Should NOT have updated the registry
     from datasette_assignments import registry as reg
     row = await reg.get(ds, "survey")
@@ -149,14 +151,16 @@ async def test_edit_post_rejects_structural_changes(tmp_path):
 
 @pytest.mark.asyncio
 async def test_edit_post_rejects_mode_change(tmp_path):
-    """POST that changes mode is rejected."""
+    """POST that changes mode is rejected — form re-rendered (200) with error text."""
     ds = await build_instance(tmp_path)
     bad = edited_defn()
     bad["mode"] = "tasks"
     r = await signed_in_post(ds, "/-/assignments/survey/edit", {
         "definition": json.dumps(bad),
     })
-    assert r.status_code in (400, 200)
+    # merge_editable raises DefinitionError → view re-renders the edit form (200)
+    assert r.status_code == 200
+    assert b"mode cannot be changed" in r.content
     from datasette_assignments import registry as reg
     row = await reg.get(ds, "survey")
     assert row["definition"]["mode"] == "form"  # unchanged
@@ -235,3 +239,100 @@ async def test_edit_manage_page_has_edit_link(tmp_path):
     r = await ds.client.get("/-/assignments/survey", cookies=alice)
     assert r.status_code == 200
     assert b"/edit" in r.content or b"Edit" in r.content
+
+
+@pytest.mark.asyncio
+async def test_edit_post_preserves_locked_flags_and_toplevel(tmp_path):
+    """Owner POSTs a definition with locked flags flipped and top-level injections;
+    the registry must preserve the stored values for those while still applying
+    the name change — proving the merge ran."""
+    ds = await build_instance(tmp_path)
+
+    from datasette_assignments import registry as reg
+    stored_row = await reg.get(ds, "survey")
+    stored_defn = stored_row["definition"]
+    # Stored field[0] has required=True, gallery=False, missing_companion=False
+    assert stored_defn["fields"][0]["required"] is True
+    assert stored_defn["fields"][0]["gallery"] is False
+    assert stored_defn["fields"][0]["missing_companion"] is False
+
+    # Build a POST payload that flips all locked flags and injects structural
+    # top-level fields that must be ignored.
+    posted = {
+        "slug": "survey",
+        "name": "Sneaky Name",       # editable — should apply
+        "mode": "form",
+        "instructions": "",
+        "responses_per_task": 99,    # structural top-level — must be ignored
+        "task_columns": ["sneaky"],  # structural top-level — must be ignored
+        "task_title_column": None,
+        "task_image_column": None,
+        "fields": [
+            {
+                "kind": "input", "type": "text", "id": "answer",
+                "label": "Sneaky Label",          # editable — should apply
+                "help": "",
+                "required": False,                # locked — must stay True
+                "gallery": True,                  # locked — must stay False
+                "missing_companion": True,        # locked — must stay False
+                "options": [],
+            }
+        ],
+    }
+
+    r = await signed_in_post(ds, "/-/assignments/survey/edit", {
+        "definition": json.dumps(posted),
+    })
+    assert r.status_code == 302
+
+    updated_row = await reg.get(ds, "survey")
+    updated_defn = updated_row["definition"]
+
+    # Name change DID apply (proving merge ran)
+    assert updated_defn["name"] == "Sneaky Name"
+    # Label change DID apply
+    assert updated_defn["fields"][0]["label"] == "Sneaky Label"
+
+    # Locked flags preserved as stored originals
+    assert updated_defn["fields"][0]["required"] is True
+    assert updated_defn["fields"][0]["gallery"] is False
+    assert updated_defn["fields"][0]["missing_companion"] is False
+
+    # Structural top-level injections ignored
+    assert updated_defn["responses_per_task"] == stored_defn["responses_per_task"]
+    assert updated_defn["task_columns"] == []
+
+
+@pytest.mark.asyncio
+async def test_edit_post_rejects_kind_change(tmp_path):
+    """POST that changes a field's kind (e.g. input → header) is rejected
+    with a re-rendered form (200) containing an error message; registry unchanged."""
+    ds = await build_instance(tmp_path)
+    bad = {
+        "slug": "survey",
+        "name": "City Survey",
+        "mode": "form",
+        "instructions": "",
+        "responses_per_task": 3,
+        "task_columns": [],
+        "task_title_column": None,
+        "task_image_column": None,
+        "fields": [
+            {
+                # Change kind from "input" to "header" — structural change
+                "kind": "header",
+                "text": "I am now a header",
+            }
+        ],
+    }
+    r = await signed_in_post(ds, "/-/assignments/survey/edit", {
+        "definition": json.dumps(bad),
+    })
+    # merge_editable detects kind change → DefinitionError → re-render (200)
+    assert r.status_code == 200
+    assert b"kind cannot change" in r.content
+
+    from datasette_assignments import registry as reg
+    row = await reg.get(ds, "survey")
+    # Registry unchanged: field still has kind=input
+    assert row["definition"]["fields"][0]["kind"] == "input"

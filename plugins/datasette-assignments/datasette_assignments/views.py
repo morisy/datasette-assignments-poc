@@ -186,14 +186,13 @@ async def assignments_edit(datasette, request):
             try:
                 merged = merge_editable(stored_defn, raw_posted)
                 validated = validate_definition(merged)
-                # Update registry
-                await registry.update_definition(datasette, slug, validated)
-                # Regenerate the app HTML
+                # Regenerate the app HTML FIRST; if this fails we leave the
+                # registry untouched so there is no stranded state.
                 new_html = render_app_html(validated, db_name)
                 if app_id:
+                    from datasette_apps.registry import Registry as AppsRegistry
+                    apps_registry = AppsRegistry(datasette)
                     try:
-                        from datasette_apps.registry import Registry as AppsRegistry
-                        apps_registry = AppsRegistry(datasette)
                         await apps_registry.update_stored_app(
                             app_id,
                             validated["name"],
@@ -201,9 +200,17 @@ async def assignments_edit(datasette, request):
                             new_html,
                             actor_id=_actor_id(request),
                         )
-                    except Exception:
-                        pass  # best-effort; registry already updated
-                return Response.redirect(f"/-/assignments/{slug}")
+                    except Exception as app_exc:
+                        errors.append(
+                            f"Couldn't update the app: {app_exc}; nothing was saved"
+                        )
+                if not errors:
+                    # App update succeeded (or there was no app); now persist to
+                    # registry.  If this internal DB write fails, let it
+                    # propagate — datasette will 500, and the next successful
+                    # save self-heals the one-off warning.
+                    await registry.update_definition(datasette, slug, validated)
+                    return Response.redirect(f"/-/assignments/{slug}")
             except DefinitionError as exc:
                 errors = exc.errors
             except Exception as exc:

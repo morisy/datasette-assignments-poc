@@ -352,3 +352,17 @@ def test_merge_editable_options_append_only():
     posted["fields"][0]["options"] = ["a"]   # removal -> error
     with pytest.raises(DefinitionError):
         merge_editable(stored, posted)
+
+    # duplicate append -> error
+    posted = dict(stored)
+    posted["fields"] = [dict(stored["fields"][0])]
+    posted["fields"][0]["options"] = ["a", "b", "b"]   # duplicate "b" -> error
+    with pytest.raises(DefinitionError):
+        merge_editable(stored, posted)
+
+    # non-string (int) append -> error
+    posted = dict(stored)
+    posted["fields"] = [dict(stored["fields"][0])]
+    posted["fields"][0]["options"] = ["a", "b", 123]   # non-string -> error
+    with pytest.raises(DefinitionError):
+        merge_editable(stored, posted)
