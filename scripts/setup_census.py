@@ -11,7 +11,6 @@ Run with: python scripts/setup_census.py   (safe to re-run; never wipes data)
 import csv
 import os
 import sqlite3
-import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(HERE, "..", "census.db")
@@ -61,6 +60,7 @@ def build(db_path, csv_path, responses_per_task=RESPONSES_PER_TASK):
     conn = sqlite3.connect(db_path)
     try:
         conn.executescript(SCHEMA)
+        conn.execute("BEGIN")
         conn.execute(
             "INSERT INTO config (key, value) VALUES ('responses_per_task', ?) "
             "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
