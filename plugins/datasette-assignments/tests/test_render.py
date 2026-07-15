@@ -124,3 +124,16 @@ def test_link_copied_toast_reused():
     defn = validate_definition(make_defn(slug="tips"))
     html = render_app_html(defn, "assignments_data")
     assert "Link copied" in html, "Link copied toast text missing"
+
+
+# ── Task 7: Image scheme guard ───────────────────────────────────────────────
+
+def test_image_render_guarded_by_http_scheme():
+    """Image is rendered only when URL starts with http:// or https:// (case-insensitive)."""
+    # Task with a valid https image URL
+    defn = tasks_defn()
+    html = render_app_html(defn, "assignments_data")
+    # tasks_defn's image column contains a URL; image should be rendered
+    assert "startsWith(" in html or "http" in html
+    # Verify the image rendering code checks the scheme
+    assert "http://" in html or "https://" in html

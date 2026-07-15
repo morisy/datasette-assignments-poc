@@ -478,14 +478,18 @@ function renderTask(task) {
 
   let imgHtml = "";
   if (imgCol && task[imgCol]) {
-    const src = esc(task[imgCol]);
-    imgHtml = `
-      <div class="task-img-wrap">
-        <div class="task-img-skeleton" id="img-skeleton"></div>
-        <img class="task-img" id="task-img" alt="" src="${src}"
-             onload="document.getElementById('img-skeleton').style.display='none';this.style.display='block'"
-             onerror="document.getElementById('img-skeleton').style.display='none';this.style.display='none'">
-      </div>`;
+    const urlValue = String(task[imgCol]).trim();
+    // Only render image if URL starts with http:// or https:// (case-insensitive)
+    if (urlValue.toLowerCase().startsWith("http://") || urlValue.toLowerCase().startsWith("https://")) {
+      const src = esc(urlValue);
+      imgHtml = `
+        <div class="task-img-wrap">
+          <div class="task-img-skeleton" id="img-skeleton"></div>
+          <img class="task-img" id="task-img" alt="" src="${src}"
+               onload="document.getElementById('img-skeleton').style.display='none';this.style.display='block'"
+               onerror="document.getElementById('img-skeleton').style.display='none';this.style.display='none'">
+        </div>`;
+    }
   }
 
   const instructions = DEFN.instructions

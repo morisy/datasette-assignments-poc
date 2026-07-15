@@ -26,6 +26,7 @@ app must also opt in. Allowed origins map onto `img-src`, `script-src-elem`,
 - You CAN show documents as **page images**. DocumentCloud serves every page as
   an image: `https://s3.documentcloud.org/documents/{id}/pages/{slug}-p{page}-{size}.gif`
   (sizes: small, normal, large, xlarge). The Document Review app does this.
+- Task images are rendered only when the URL starts with `http://` or `https://` (case-insensitive). Malformed or protocol-relative URLs are silently skipped.
 
 ## Permission gotchas (each of these bit us)
 
@@ -48,6 +49,10 @@ effect ("mark the task done when it has enough responses") must be a SQLite
 **trigger** (see `mark_task_done` in `scripts/setup_census.py`). The
 `responses_per_task` value lives in the `config` table so the app, the
 task-selection SQL, and the trigger all read one number.
+
+## Next task selection respects assignment status
+
+The `next_task` query includes a guard: `AND (SELECT value FROM a_{slug}_config WHERE key='status') = 'open'`. No new tasks are offered once the assignment is closed, preventing submissions after the collection window ends.
 
 ## Contributors are anonymous — design for it
 

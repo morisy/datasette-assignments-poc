@@ -440,3 +440,41 @@ def test_drop_ddl_removes_agreement_view():
     views_after = [r[0] for r in conn.execute(
         "SELECT name FROM sqlite_master WHERE name LIKE 'a_mayors%'")]
     assert "a_mayors_agreement" not in views_after
+
+
+# ── Task 7: Debt cleanup tests ───────────────────────────────────────────────
+
+def test_validate_responses_per_task_absent_or_none_defaults_to_3():
+    """ABSENT or None → default 3 (unchanged)."""
+    defn1 = validate_definition(make_defn())  # responses_per_task: 3 explicit
+    assert defn1["responses_per_task"] == 3
+
+    # Test absent (no key)
+    defn2 = validate_definition(make_defn(responses_per_task=None))
+    assert defn2["responses_per_task"] == 3
+
+
+def test_validate_responses_per_task_zero_and_negative_raises():
+    """0, negative, and non-int values → error listed (not raised early)."""
+    # responses_per_task = 0 → error
+    with pytest.raises(DefinitionError) as e:
+        validate_definition(make_defn(responses_per_task=0))
+    assert any("responses_per_task" in msg for msg in e.value.errors)
+
+    # responses_per_task = -1 → error
+    with pytest.raises(DefinitionError) as e:
+        validate_definition(make_defn(responses_per_task=-1))
+    assert any("responses_per_task" in msg for msg in e.value.errors)
+
+    # responses_per_task = "abc" → error
+    with pytest.raises(DefinitionError) as e:
+        validate_definition(make_defn(responses_per_task="abc"))
+    assert any("responses_per_task" in msg for msg in e.value.errors)
+
+
+def test_next_task_sql_includes_status_guard():
+    """next_task SQL must include status='open' guard."""
+    defn = tasks_defn()
+    q = build_queries(defn, "assignments_data")
+    next_task_sql = q["next_task"]["sql"]
+    assert "status') = 'open'" in next_task_sql or "status\") = 'open'" in next_task_sql

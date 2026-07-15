@@ -49,12 +49,17 @@ def validate_definition(defn):
         errors.append("name is required")
     if d.get("mode") not in MODES:
         errors.append("mode must be 'tasks' or 'form'")
-    try:
-        d["responses_per_task"] = int(d.get("responses_per_task") or 3)
-        if d["responses_per_task"] < 1:
-            errors.append("responses_per_task must be >= 1")
-    except (TypeError, ValueError):
-        errors.append("responses_per_task must be an integer")
+    # responses_per_task: ABSENT/None → 3; PRESENT but invalid → error listed
+    rpt = d.get("responses_per_task")
+    if rpt is None:
+        d["responses_per_task"] = 3
+    else:
+        try:
+            d["responses_per_task"] = int(rpt)
+            if d["responses_per_task"] < 1:
+                errors.append("responses_per_task must be >= 1")
+        except (TypeError, ValueError):
+            errors.append("responses_per_task must be an integer")
 
     if d.get("mode") == "tasks":
         cols = d.get("task_columns") or []
@@ -350,6 +355,7 @@ def build_queries(defn, db_name):
                 f"      < (SELECT CAST(value AS INTEGER) FROM a_{slug}_config "
                 f"WHERE key = 'responses_per_task')\n"
                 f"  AND instr(',' || :seen || ',', ',' || t.id || ',') = 0\n"
+                f"  AND (SELECT value FROM a_{slug}_config WHERE key='status') = 'open'\n"
                 f"ORDER BY RANDOM() LIMIT 1"
             ),
             "is_write": False,
