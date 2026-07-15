@@ -3,14 +3,14 @@
 set -e
 
 mkdir -p /data
-for f in census.db assignments.db internal.db; do
+for f in census.db assignments.db internal.db assignments_data.db; do
   if [ ! -f "/data/$f" ]; then
     echo "seeding /data/$f"
     cp "/app/seed/$f" "/data/$f"
   fi
 done
 
-exec datasette serve /data/census.db /data/assignments.db \
+exec datasette serve /data/census.db /data/assignments.db /data/assignments_data.db \
   --internal /data/internal.db \
   -c /app/datasette.yaml \
   --secret "$DATASETTE_SECRET" \
