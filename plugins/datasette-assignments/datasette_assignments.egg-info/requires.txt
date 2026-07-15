@@ -1,2 +1,0 @@
-datasette>=1.0a35
-datasette-apps>=0.1a3

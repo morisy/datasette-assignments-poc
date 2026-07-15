@@ -1,2 +1,0 @@
-[datasette]
-assignments = datasette_assignments

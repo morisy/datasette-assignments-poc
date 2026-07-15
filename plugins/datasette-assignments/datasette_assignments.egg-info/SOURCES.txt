@@ -1,9 +1,0 @@
-pyproject.toml
-datasette_assignments/__init__.py
-datasette_assignments.egg-info/PKG-INFO
-datasette_assignments.egg-info/SOURCES.txt
-datasette_assignments.egg-info/dependency_links.txt
-datasette_assignments.egg-info/entry_points.txt
-datasette_assignments.egg-info/requires.txt
-datasette_assignments.egg-info/top_level.txt
-tests/test_schema.py
