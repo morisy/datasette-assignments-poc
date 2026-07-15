@@ -197,7 +197,7 @@ async def assignments_edit(datasette, request):
                         await apps_registry.update_stored_app(
                             app_id,
                             validated["name"],
-                            validated.get("instructions", ""),
+                            (validated.get("instructions") or "")[:200],
                             new_html,
                             actor_id=_actor_id(request),
                         )

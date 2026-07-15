@@ -242,3 +242,113 @@ def test_merge_editable_allows_adding_options():
     ]
     merged = merge_editable(stored, posted)
     assert merged["fields"][0]["options"] == ["a", "b", "c"]
+
+
+# ── Three verbatim tests from task-1-brief ────────────────────────────────────
+
+def test_merge_editable_accepts_copy_changes():
+    """Name, instructions, and field labels/help are all editable."""
+    stored = make_defn(slug="survey", name="Old Name")
+    stored["fields"] = [
+        {"kind": "input", "type": "text", "id": "answer", "label": "Old",
+         "help": "", "required": True, "gallery": False,
+         "missing_companion": False, "options": []},
+    ]
+    posted = dict(stored)
+    posted["name"] = "New Name"
+    posted["instructions"] = "New instructions"
+    posted["fields"] = [
+        {"kind": "input", "type": "text", "id": "answer", "label": "New",
+         "help": "hint", "required": True, "gallery": False,
+         "missing_companion": False, "options": []},
+    ]
+    merged = merge_editable(stored, posted)
+    assert merged["name"] == "New Name"
+    assert merged["instructions"] == "New instructions"
+    assert merged["fields"][0]["label"] == "New"
+    assert merged["fields"][0]["help"] == "hint"
+    assert merged["slug"] == "survey"          # structural: unchanged
+    assert merged["fields"][0]["id"] == "answer"  # structural: unchanged
+
+
+def test_merge_editable_rejects_structural_changes():
+    """mode, slug, field id, and field type changes raise DefinitionError."""
+    stored = make_defn(slug="survey")
+    stored["fields"] = [
+        {"kind": "input", "type": "text", "id": "answer", "label": "Label",
+         "help": "", "required": True, "gallery": False,
+         "missing_companion": False, "options": []},
+    ]
+
+    # mode change
+    posted = dict(stored)
+    posted["mode"] = "tasks"
+    with pytest.raises(DefinitionError):
+        merge_editable(stored, posted)
+
+    # slug change
+    posted = dict(stored)
+    posted["slug"] = "other"
+    with pytest.raises(DefinitionError):
+        merge_editable(stored, posted)
+
+    # field id rename
+    posted = dict(stored)
+    posted["fields"] = [
+        {"kind": "input", "type": "text", "id": "renamed", "label": "Label",
+         "help": "", "required": True, "gallery": False,
+         "missing_companion": False, "options": []},
+    ]
+    with pytest.raises(DefinitionError):
+        merge_editable(stored, posted)
+
+    # field type change
+    posted = dict(stored)
+    posted["fields"] = [
+        {"kind": "input", "type": "number", "id": "answer", "label": "Label",
+         "help": "", "required": True, "gallery": False,
+         "missing_companion": False, "options": []},
+    ]
+    with pytest.raises(DefinitionError):
+        merge_editable(stored, posted)
+
+
+def test_merge_editable_options_append_only():
+    """Options must start with stored options in order; reorder/rename/remove raises."""
+    stored = make_defn(slug="survey")
+    stored["fields"] = [
+        {"kind": "input", "type": "select", "id": "pick", "label": "Pick",
+         "help": "", "required": False, "gallery": False,
+         "missing_companion": False, "options": ["a", "b"]},
+    ]
+
+    # append is fine
+    posted = dict(stored)
+    posted["fields"] = [
+        {"kind": "input", "type": "select", "id": "pick", "label": "Pick",
+         "help": "", "required": False, "gallery": False,
+         "missing_companion": False, "options": ["a", "b", "c"]},
+    ]
+    merged = merge_editable(stored, posted)
+    assert merged["fields"][0]["options"] == ["a", "b", "c"]
+
+    # rename existing option -> error
+    posted = dict(stored)
+    posted["fields"] = [dict(stored["fields"][0])]
+    posted["fields"][0]["options"] = ["a", "x", "c"]   # rename -> error
+    with pytest.raises(DefinitionError):
+        merge_editable(stored, posted)
+
+    # reorder -> error
+    posted = dict(stored)
+    posted["fields"] = [dict(stored["fields"][0])]
+    posted["fields"][0]["options"] = ["b", "a"]   # reorder -> error
+    with pytest.raises(DefinitionError):
+        merge_editable(stored, posted)
+
+    # removal -> error
+    posted = dict(stored)
+    posted["fields"] = [dict(stored["fields"][0])]
+    posted["fields"][0]["options"] = ["a"]   # removal -> error
+    with pytest.raises(DefinitionError):
+        merge_editable(stored, posted)

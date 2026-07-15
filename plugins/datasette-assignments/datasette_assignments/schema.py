@@ -254,13 +254,20 @@ def merge_editable(stored, posted):
             if sf.get("type") in OPTION_TYPES:
                 stored_opts = sf.get("options") or []
                 posted_opts = pf.get("options") or []
-                # Preserve all stored options plus any new ones appended
-                # Existing options at their original indices are read-only
-                merged_opts = list(stored_opts)
-                for opt in posted_opts[len(stored_opts):]:
-                    merged_opts.append(opt)
-                mf["options"] = merged_opts
+                # posted options must START WITH stored options in order
+                # (only appends accepted; reorder/rename/removal is forbidden)
+                if posted_opts[:len(stored_opts)] != stored_opts:
+                    errors.append(
+                        f"field {sf.get('id')!r}: existing options cannot be "
+                        f"reordered, renamed, or removed (only appending new "
+                        f"options is allowed)"
+                    )
+                else:
+                    mf["options"] = list(posted_opts)
         merged_fields.append(mf)
+
+    if errors:
+        raise DefinitionError(errors)
 
     merged["fields"] = merged_fields
     return merged

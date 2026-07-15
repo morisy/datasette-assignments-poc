@@ -83,6 +83,7 @@ async def test_edit_get_returns_200_for_owner(tmp_path):
     assert r.status_code == 200
     # Page should contain edit mode signals
     assert b"survey" in r.content
+    assert b"__editMode" in r.content
 
 
 @pytest.mark.asyncio
@@ -111,13 +112,22 @@ async def test_edit_post_updates_name_and_label(tmp_path):
         "definition": json.dumps(edited_defn()),
     })
     # Expect redirect back to manage page
-    assert r.status_code in (302, 200)
+    assert r.status_code == 302
 
     from datasette_assignments import registry as reg
     row = await reg.get(ds, "survey")
     assert row["name"] == "City Survey Updated"
     defn = row["definition"]
     assert defn["fields"][0]["label"] == "Updated Label"
+
+    # Regenerated app HTML (current revision) should contain the new label
+    app_id = row.get("app_id", "")
+    if app_id:
+        from datasette_apps.registry import Registry as AppsRegistry
+        apps_registry = AppsRegistry(ds)
+        version = await apps_registry.get_current_version(app_id)
+        if version:
+            assert "Updated Label" in (version.get("html") or "")
 
 
 @pytest.mark.asyncio
@@ -160,6 +170,61 @@ async def test_edit_post_requires_owner(tmp_path):
         "definition": json.dumps(edited_defn()),
     }, actor_id="bob")
     assert r.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_edit_hand_edit_warning_and_confirm_overwrite(tmp_path):
+    """After a hand-edit to the app HTML, the edit page shows a warning,
+    POST without confirm_overwrite is rejected (400), POST with it succeeds."""
+    ds = await build_instance(tmp_path)
+
+    # Retrieve the app_id stored in the registry
+    from datasette_assignments import registry as reg
+    row = await reg.get(ds, "survey")
+    app_id = row.get("app_id", "")
+    assert app_id, "assignment must have an app_id"
+
+    # Simulate a hand-edit: overwrite the current app HTML with something different
+    from datasette_apps.registry import Registry as AppsRegistry
+    apps_registry = AppsRegistry(ds)
+    await apps_registry.update_stored_app(
+        app_id,
+        row["name"],
+        (row["definition"].get("instructions") or "")[:200],
+        "<html><body>HAND EDITED</body></html>",
+        actor_id="alice",
+    )
+
+    # GET should show the hand-edit warning
+    alice = {"ds_actor": ds.client.actor_cookie({"id": "alice"})}
+    r_get = await ds.client.get("/-/assignments/survey/edit", cookies=alice)
+    assert r_get.status_code == 200
+    assert b"customized" in r_get.content or b"hand" in r_get.content.lower() or b"overwrite" in r_get.content.lower()
+
+    # POST without confirm_overwrite should be rejected (400 or re-render with errors)
+    r_no_confirm = await signed_in_post(ds, "/-/assignments/survey/edit", {
+        "definition": json.dumps(edited_defn()),
+    })
+    assert r_no_confirm.status_code in (400, 200)
+    # The registry should still be unchanged (original name)
+    row_after = await reg.get(ds, "survey")
+    assert row_after["name"] == "City Survey"  # not updated
+
+    # POST with confirm_overwrite=1 should succeed
+    r_confirm = await signed_in_post(ds, "/-/assignments/survey/edit", {
+        "definition": json.dumps(edited_defn()),
+        "confirm_overwrite": "1",
+    })
+    assert r_confirm.status_code == 302
+
+    # Registry should now reflect the edit
+    row_updated = await reg.get(ds, "survey")
+    assert row_updated["name"] == "City Survey Updated"
+
+    # App HTML should be regenerated (no longer the hand-edited version)
+    version = await apps_registry.get_current_version(app_id)
+    if version:
+        assert "HAND EDITED" not in (version.get("html") or "")
 
 
 @pytest.mark.asyncio
