@@ -55,6 +55,30 @@ async def test_create_rolls_back_on_failure(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_create_rolls_back_when_task_insert_fails(tmp_path, monkeypatch):
+    ds = make_ds(tmp_path)
+    await ds.invoke_startup()
+
+    async def boom(*a, **kw):
+        raise RuntimeError("task insert failed")
+    monkeypatch.setattr(creator, "insert_tasks", boom)
+
+    with pytest.raises(creator.CreationError):
+        await creator.create_assignment(
+            ds, tasks_defn(), {"id": "alice"},
+            task_rows=[{"city": "X", "state": "Y"}])
+
+    db = ds.get_database("assignments_data")
+    leftover = (await db.execute(
+        "SELECT name FROM sqlite_master WHERE name LIKE 'a_mayors%'")).rows
+    assert leftover == []
+    assert await ds.get_query("assignments_data", "submit_mayors") is None
+    assert await ds.get_query("assignments_data", "next_task_mayors") is None
+    assert await ds.get_query("assignments_data", "progress_mayors") is None
+    assert await registry.get(ds, "mayors") is None
+
+
+@pytest.mark.asyncio
 async def test_insert_tasks_and_submit_flow(tmp_path):
     ds = make_ds(tmp_path)
     await ds.invoke_startup()

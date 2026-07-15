@@ -25,14 +25,12 @@ def _require_actor(request):
 async def _require_owner_or_root(datasette, request, slug):
     actor = _require_actor(request)
     actor_id = actor.get("id")
-    if actor_id == "root":
-        return actor
     row = await registry.get(datasette, slug)
     if not row:
         raise NotFound(f"Assignment {slug!r} not found")
-    if row["owner_id"] != actor_id:
+    if actor_id != "root" and row["owner_id"] != actor_id:
         raise Forbidden("Owner or root access required")
-    return actor
+    return row
 
 
 # ── List ──────────────────────────────────────────────────────────────────────
@@ -113,9 +111,8 @@ async def assignments_new(datasette, request):
         if not errors:
             try:
                 defn = validate_definition(raw_defn)
-                await create_assignment(datasette, defn, actor)
-                if task_rows:
-                    await insert_tasks(datasette, defn, task_rows)
+                await create_assignment(datasette, defn, actor,
+                                        task_rows=task_rows if task_rows else None)
                 return Response.redirect(f"/-/assignments/{defn['slug']}")
             except DefinitionError as exc:
                 errors = exc.errors
@@ -161,11 +158,7 @@ async def assignments_preview(datasette, request):
 
 async def assignments_manage(datasette, request):
     slug = request.url_vars["slug"]
-    await _require_owner_or_root(datasette, request, slug)
-
-    row = await registry.get(datasette, slug)
-    if not row:
-        raise NotFound(f"Assignment {slug!r} not found")
+    row = await _require_owner_or_root(datasette, request, slug)
 
     db_name = get_data_db_name(datasette)
     db = datasette.get_database(db_name)

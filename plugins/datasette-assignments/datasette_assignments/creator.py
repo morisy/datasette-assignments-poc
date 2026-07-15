@@ -29,7 +29,7 @@ async def _create_app(datasette, defn, actor_id, db_name, query_names):
     return app["id"] if isinstance(app, dict) else app
 
 
-async def create_assignment(datasette, defn, actor):
+async def create_assignment(datasette, defn, actor, task_rows=None):
     db_name = get_data_db_name(datasette)
     db = datasette.get_database(db_name)
     slug = defn["slug"]
@@ -40,20 +40,18 @@ async def create_assignment(datasette, defn, actor):
         for stmt in build_ddl(defn):
             await db.execute_write(stmt)
         await seed_config(datasette, defn)
+        if task_rows:
+            await insert_tasks(datasette, defn, task_rows)
         queries = build_queries(defn, db_name)
         for q in queries.values():
             await stored_queries.add_query(
                 datasette, db_name, q["name"], q["sql"],
                 is_write=q["is_write"],
                 is_private=False,
-                # is_trusted skips BOTH the execute-write-sql permission check
-                # and per-table write authorization — acceptable only because
-                # this SQL is plugin-generated and immutable, never user-supplied.
-                # It is what enables anonymous submissions.
-                # All plugin-generated queries are trusted: they are
-                # immutable, schema-derived SQL that bypass the execute-sql
-                # permission check.  This is what lets the progress / next_task
-                # read queries run even when execute-sql is denied on the data DB.
+                # is_trusted skips execute-sql/execute-write-sql AND per-table write
+                # auth — safe only because this SQL is plugin-generated and immutable
+                # (never user-supplied). Enables anonymous submissions and lets read
+                # queries (progress, next_task) work even when execute-sql is denied.
                 is_trusted=True,
             )
             created_queries.append(q["name"])
