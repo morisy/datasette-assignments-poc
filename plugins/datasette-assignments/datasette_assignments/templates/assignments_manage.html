@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Manage: {{ defn.name }}{% endblock %}
+
+{% block content %}
+<h1>{{ defn.name }} <small>({{ slug }})</small></h1>
+
+<div class="manage-links">
+  <a href="{{ urls.path('/-/apps/' ~ app_id) }}">Open App</a>
+  {% if has_public_view %}
+  | <a href="{{ urls.path('/' ~ db_name ~ '/a_' ~ slug ~ '_public') }}">Public view</a>
+  {% endif %}
+  | <a href="{{ urls.path('/-/assignments/' ~ slug ~ '/export.csv') }}">Export CSV</a>
+</div>
+
+<h2>Progress</h2>
+<table class="progress-table">
+  <tr>
+    {% if progress.total is defined %}
+    <th>Total tasks</th><th>Done</th><th>Collected</th><th>Target</th><th>Status</th>
+    {% else %}
+    <th>Collected</th><th>Status</th>
+    {% endif %}
+  </tr>
+  <tr>
+    {% if progress.total is defined %}
+    <td>{{ progress.total }}</td>
+    <td>{{ progress.done }}</td>
+    <td>{{ progress.collected }}</td>
+    <td>{{ progress.target }}</td>
+    <td>{{ progress.status }}</td>
+    {% else %}
+    <td>{{ progress.collected }}</td>
+    <td>{{ progress.status }}</td>
+    {% endif %}
+  </tr>
+</table>
+
+<h2>Controls</h2>
+
+<form method="post" action="{{ urls.path('/-/assignments/' ~ slug ~ '/toggle-status') }}" style="display:inline">
+  <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
+  <button type="submit">{{ 'Close' if progress.status == 'open' else 'Reopen' }} Assignment</button>
+</form>
+
+{% if defn.mode == "tasks" %}
+<form method="post" action="{{ urls.path('/-/assignments/' ~ slug ~ '/target') }}" style="display:inline;margin-left:1em">
+  <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
+  Responses per task:
+  <input type="number" name="responses_per_task" value="{{ progress.target or defn.responses_per_task }}" min="1" style="width:4em">
+  <button type="submit">Update</button>
+</form>
+{% endif %}
+
+<h2>Responses <small>(latest 200)</small></h2>
+{% if responses %}
+<div style="overflow-x:auto">
+<table class="responses-table">
+  <thead>
+    <tr>
+      {% for col in responses[0].keys() %}
+      <th>{{ col }}</th>
+      {% endfor %}
+      <th>Public</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for resp in responses %}
+    <tr>
+      {% for val in resp.values() %}
+      <td>{{ val }}</td>
+      {% endfor %}
+      <td>
+        <form method="post" action="{{ urls.path('/-/assignments/' ~ slug ~ '/response-public') }}">
+          <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
+          <input type="hidden" name="id" value="{{ resp.id }}">
+          {% if resp.is_public %}
+          <input type="hidden" name="public" value="0">
+          <button type="submit">Make private</button>
+          {% else %}
+          <input type="hidden" name="public" value="1">
+          <button type="submit">Make public</button>
+          {% endif %}
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p>No responses yet.</p>
+{% endif %}
+
+<h2>Delete Assignment</h2>
+<form method="post" action="{{ urls.path('/-/assignments/' ~ slug ~ '/delete') }}" onsubmit="return confirm('Delete assignment {{ slug }}? This cannot be undone.')">
+  <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
+  <p>Type the slug to confirm deletion:</p>
+  <input type="text" name="confirm" placeholder="{{ slug }}">
+  <button type="submit" style="background:#c00;color:#fff">Delete</button>
+</form>
+{% endblock %}

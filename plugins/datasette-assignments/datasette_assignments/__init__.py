@@ -19,6 +19,35 @@ def startup(datasette):
 
 
 @hookimpl
+def register_routes():
+    from . import views
+    return [
+        (r"^/-/assignments$", views.assignments_list),
+        (r"^/-/assignments/new$", views.assignments_new),
+        (r"^/-/assignments/preview$", views.assignments_preview),
+        (r"^/-/assignments/(?P<slug>[a-z][a-z0-9_]{0,39})/export\.csv$",
+         views.assignments_export_csv),
+        (r"^/-/assignments/(?P<slug>[a-z][a-z0-9_]{0,39})/toggle-status$",
+         views.assignments_toggle_status),
+        (r"^/-/assignments/(?P<slug>[a-z][a-z0-9_]{0,39})/target$",
+         views.assignments_target),
+        (r"^/-/assignments/(?P<slug>[a-z][a-z0-9_]{0,39})/response-public$",
+         views.assignments_response_public),
+        (r"^/-/assignments/(?P<slug>[a-z][a-z0-9_]{0,39})/delete$",
+         views.assignments_delete),
+        (r"^/-/assignments/(?P<slug>[a-z][a-z0-9_]{0,39})$",
+         views.assignments_manage),
+    ]
+
+
+@hookimpl
+def menu_links(datasette, actor, request):
+    if actor:
+        return [{"href": "/-/assignments", "label": "Assignments"}]
+    return []
+
+
+@hookimpl
 def permission_resources_sql(datasette, actor, action):
     actor_id = actor.get("id") if actor else None
     data_db = get_data_db_name(datasette)

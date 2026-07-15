@@ -1,0 +1,146 @@
+/* datasette-assignments builder styles */
+
+.palette {
+  margin: 1em 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4em;
+  align-items: center;
+}
+
+.palette button {
+  padding: 0.3em 0.7em;
+  border: 1px solid #888;
+  background: #f5f5f5;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 0.85em;
+}
+
+.palette button:hover {
+  background: #e0e0e0;
+}
+
+.field-card {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 0.8em 1em;
+  margin-bottom: 0.6em;
+  background: #fafafa;
+}
+
+.field-card .field-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  font-weight: bold;
+  margin-bottom: 0.5em;
+}
+
+.field-card .field-controls {
+  float: right;
+  display: flex;
+  gap: 0.3em;
+}
+
+.field-card .field-controls button {
+  padding: 0.2em 0.5em;
+  font-size: 0.8em;
+  cursor: pointer;
+}
+
+.field-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em 1em;
+  margin-bottom: 0.4em;
+  align-items: center;
+}
+
+.field-row label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.85em;
+  min-width: 12em;
+}
+
+.field-row label.inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.3em;
+  min-width: auto;
+}
+
+.options-editor {
+  margin-top: 0.5em;
+  padding: 0.5em;
+  border: 1px dashed #bbb;
+  border-radius: 3px;
+}
+
+.options-editor .option-row {
+  display: flex;
+  gap: 0.4em;
+  margin-bottom: 0.3em;
+}
+
+.options-editor input[type=text] {
+  flex: 1;
+}
+
+.builder-area {
+  margin: 1em 0;
+}
+
+.assignment-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6em 1.2em;
+  margin-bottom: 1em;
+}
+
+.assignment-meta label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.9em;
+}
+
+.assignment-meta label textarea {
+  resize: vertical;
+}
+
+.form-actions {
+  margin-top: 1.5em;
+}
+
+.preview-area {
+  margin: 1em 0;
+}
+
+#preview-btn {
+  padding: 0.4em 1em;
+  cursor: pointer;
+}
+
+.message-error {
+  background: #fee;
+  border: 1px solid #c00;
+  padding: 0.7em 1em;
+  border-radius: 4px;
+  margin-bottom: 1em;
+}
+
+.message-error ul {
+  margin: 0;
+  padding-left: 1.2em;
+}
+
+.responses-table th, .responses-table td {
+  padding: 0.3em 0.6em;
+  border: 1px solid #ddd;
+  font-size: 0.85em;
+}
+
+.manage-links {
+  margin-bottom: 1em;
+}

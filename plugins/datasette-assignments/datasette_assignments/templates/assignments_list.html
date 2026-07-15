@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Assignments{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Assignments</h1>
+  <p><a class="button" href="{{ urls.path('/-/assignments/new') }}">New Assignment</a></p>
+</div>
+
+{% if assignments %}
+<ul class="assignments-list">
+  {% for a in assignments %}
+  <li>
+    <a href="{{ urls.path('/-/assignments/' ~ a.slug) }}">{{ a.name }}</a>
+    <small>({{ a.slug }}, {{ a.mode }}, owner: {{ a.owner_id }})</small>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>No assignments yet. <a href="{{ urls.path('/-/assignments/new') }}">Create one</a>.</p>
+{% endif %}
+{% endblock %}

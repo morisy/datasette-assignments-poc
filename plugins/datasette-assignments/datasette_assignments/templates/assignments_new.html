@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}New Assignment{% endblock %}
+
+{% block content %}
+<h1>New Assignment</h1>
+
+{% if errors %}
+<div class="message-error">
+  <ul>
+    {% for e in errors %}<li>{{ e }}</li>{% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<form id="assignment-form" method="post" action="{{ urls.path('/-/assignments/new') }}">
+  <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
+  <input type="hidden" id="definition-json" name="definition" value="{{ definition_json | e }}">
+
+  <div class="assignment-meta">
+    <label>
+      Assignment name
+      <input type="text" id="assignment-name" placeholder="My Assignment">
+    </label>
+    <label>
+      Slug <small>(leave blank to auto-generate)</small>
+      <input type="text" id="assignment-slug" placeholder="my_assignment">
+    </label>
+    <label>
+      Mode
+      <select id="assignment-mode">
+        <option value="form">Form (open-ended)</option>
+        <option value="tasks">Tasks (structured list)</option>
+      </select>
+    </label>
+    <label>
+      Instructions
+      <textarea id="assignment-instructions" rows="3"></textarea>
+    </label>
+    <label id="rpt-label" style="display:none">
+      Responses per task
+      <input type="number" id="assignment-rpt" value="3" min="1">
+    </label>
+  </div>
+
+  <div id="tasks-csv-section" style="display:none">
+    <h3>Tasks CSV</h3>
+    <p>Paste CSV with headers. First column will be the task title.</p>
+    <textarea name="tasks_csv" id="tasks-csv" rows="8" style="width:100%;font-family:monospace"></textarea>
+  </div>
+
+  <div class="builder-area">
+    <h3>Fields</h3>
+    <div class="palette">
+      <strong>Add field:</strong>
+      <button type="button" data-type="text">Text</button>
+      <button type="button" data-type="textarea">Textarea</button>
+      <button type="button" data-type="number">Number</button>
+      <button type="button" data-type="date">Date</button>
+      <button type="button" data-type="url">URL</button>
+      <button type="button" data-type="email">Email</button>
+      <button type="button" data-type="select">Select</button>
+      <button type="button" data-type="checkbox_group">Checkbox Group</button>
+      <button type="button" data-type="checkbox">Checkbox</button>
+      <button type="button" data-kind="header">Header</button>
+      <button type="button" data-kind="paragraph">Paragraph</button>
+    </div>
+    <div id="fields-container"></div>
+  </div>
+
+  <div class="preview-area">
+    <button type="button" id="preview-btn">Preview</button>
+    <iframe id="preview-frame" sandbox="allow-scripts" style="width:100%;min-height:400px;border:1px solid #ccc;display:none"></iframe>
+  </div>
+
+  <div class="form-actions">
+    <button type="submit">Create Assignment</button>
+  </div>
+</form>
+
+<link rel="stylesheet" href="{{ urls.path('/-/static-plugins/datasette-assignments/builder.css') }}">
+<script src="{{ urls.path('/-/static-plugins/datasette-assignments/builder.js') }}"></script>
+<script>
+window.__previewUrl = {{ urls.path('/-/assignments/preview') | tojson }};
+window.__initialDefinition = {{ definition_json | tojson if definition_json else 'null' }};
+</script>
+{% endblock %}
