@@ -13,8 +13,8 @@ import os
 import sqlite3
 import urllib.request
 
-DB_PATH = "assignments.db"
-CSV_PATH = "documents.csv"
+DB_PATH = os.path.join(os.path.dirname(__file__), "..", "assignments.db")
+CSV_PATH = os.path.join(os.path.dirname(__file__), "..", "documents.csv")
 API = "https://api.www.documentcloud.org/api/documents/{id}/"
 
 # How many independent answers to collect for each page before it drops out of
