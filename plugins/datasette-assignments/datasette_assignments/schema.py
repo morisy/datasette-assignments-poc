@@ -6,6 +6,7 @@ whitelist-only: ^[a-z][a-z0-9_]{0,39}$ — we never escape or quote identifiers.
 import re
 
 SLUG_RE = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
+TOKEN_RE = re.compile(r"\{\{\s*([a-z][a-z0-9_]*)\s*\}\}")
 INPUT_TYPES = {"text", "textarea", "number", "date", "select",
                "checkbox_group", "checkbox", "url", "email"}
 COMPANION_TYPES = {"text", "textarea", "url", "email"}
@@ -109,6 +110,34 @@ def validate_definition(defn):
                           f"on text/textarea/url/email")
     if n_inputs == 0:
         errors.append("at least one input field is required")
+
+    # ── Token ({{column}}) validation ────────────────────────────────────────
+    task_columns = d.get("task_columns") or []
+    mode = d.get("mode")
+    # Collect (surface_name, text) pairs
+    surfaces = [("instructions", d.get("instructions") or "")]
+    for f in fields:
+        kind = f.get("kind")
+        if kind in ("header", "paragraph"):
+            surfaces.append((f"{kind} block", f.get("text") or ""))
+        elif kind == "input":
+            fid = f.get("id") or ""
+            surfaces.append((f"label of {fid}", f.get("label") or ""))
+            surfaces.append((f"help of {fid}", f.get("help") or ""))
+    for surface, text in surfaces:
+        for tok in TOKEN_RE.findall(text):
+            if mode == "tasks":
+                if tok not in task_columns:
+                    avail = ", ".join(task_columns) if task_columns else "(none)"
+                    errors.append(
+                        f"unknown variable {{{{{tok}}}}} in {surface} "
+                        f"— available: {avail}"
+                    )
+            else:
+                errors.append(
+                    f"variables like {{{{{tok}}}}} only work in task-list "
+                    f"assignments (found in {surface})"
+                )
 
     if errors:
         raise DefinitionError(errors)

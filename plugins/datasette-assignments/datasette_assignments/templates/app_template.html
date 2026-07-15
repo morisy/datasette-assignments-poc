@@ -340,8 +340,85 @@ async function loadProgress() {
   }
 }
 
+{% if defn.mode == 'tasks' %}
+// ── Token interpolation (tasks mode only) ────────────────────────────────────
+
+function interp(text, task) {
+  return String(text ?? "").replace(/\{\{\s*([a-z][a-z0-9_]*)\s*\}\}/g, function (m, col) {
+    return task && task[col] !== undefined ? String(task[col]) : m;
+  });
+}
+{% endif %}
+
 // ── Field rendering ──────────────────────────────────────────────────────────
 
+{% if defn.mode == 'tasks' %}
+function renderField(f, task) {
+  if (f.kind === "header") {
+    return `<h3 style="font-size:15px;font-weight:700;color:var(--ink);padding-top:4px">${esc(interp(f.text, task))}</h3>`;
+  }
+  if (f.kind === "paragraph") {
+    return `<p class="explain">${esc(interp(f.text, task))}</p>`;
+  }
+  // input kinds
+  const id = f.id;
+  const label = esc(interp(f.label, task));
+  const hint  = f.help ? `<span class="hint">${esc(interp(f.help, task))}</span>` : "";
+  const req   = f.required ? ' aria-required="true"' : "";
+  // Red asterisk on required fields; screen readers get aria-required instead.
+  const reqMark = f.required ? '<span class="req-mark" aria-hidden="true">*</span>' : "";
+
+  let inputHtml = "";
+  if (f.type === "text") {
+    inputHtml = `<input type="text" id="${id}" autocomplete="off"${req}>`;
+  } else if (f.type === "textarea") {
+    inputHtml = `<textarea id="${id}"${req}></textarea>`;
+  } else if (f.type === "number") {
+    inputHtml = `<input type="number" id="${id}"${req}>`;
+  } else if (f.type === "date") {
+    inputHtml = `<input type="date" id="${id}"${req}>`;
+  } else if (f.type === "url") {
+    inputHtml = `<input type="url" id="${id}" placeholder="https://…" autocomplete="off"${req}>`;
+  } else if (f.type === "email") {
+    inputHtml = `<input type="email" id="${id}" placeholder="user@example.com" autocomplete="off"${req}>`;
+  } else if (f.type === "select") {
+    const opts = f.options.map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join("");
+    inputHtml = `<select id="${id}"${req}><option value="">— choose —</option>${opts}</select>`;
+  } else if (f.type === "checkbox_group") {
+    const checks = f.options.map(o =>
+      `<label class="checkbox-item"><input type="checkbox" data-group="${id}" value="${esc(o)}"> ${esc(o)}</label>`
+    ).join("");
+    inputHtml = `<div class="checkbox-list" id="${id}">${checks}</div>`;
+  } else if (f.type === "checkbox") {
+    inputHtml = `<label class="single-checkbox"><input type="checkbox" id="${id}"> ${label}${reqMark}</label>`;
+  }
+
+  let missingHtml = "";
+  if (f.missing_companion) {
+    missingHtml = `
+      <div class="missing-row">
+        <input type="checkbox" id="${id}-missing" onchange="toggleMissing('${id}')">
+        <label for="${id}-missing" style="font-weight:400">I couldn't find this</label>
+      </div>`;
+  }
+
+  const labelRow = f.type === "checkbox"
+    ? ""  // label baked into checkbox html above
+    : `<label for="${id}">${label}${reqMark} ${hint}</label>`;
+
+  return `
+    <div class="field-group" id="group-${id}">
+      ${labelRow}
+      ${inputHtml}
+      ${missingHtml}
+      <div class="field-error" id="${id}-error"></div>
+    </div>`;
+}
+
+function buildFormHtml(task) {
+  return DEFN.fields.map(f => renderField(f, task)).join("");
+}
+{% else %}
 function renderField(f) {
   if (f.kind === "header") {
     return `<h3 style="font-size:15px;font-weight:700;color:var(--ink);padding-top:4px">${esc(f.text)}</h3>`;
@@ -407,6 +484,7 @@ function renderField(f) {
 function buildFormHtml() {
   return DEFN.fields.map(renderField).join("");
 }
+{% endif %}
 
 // ── Validation / reading ─────────────────────────────────────────────────────
 
@@ -502,7 +580,7 @@ function renderTask(task) {
   }
 
   const instructions = DEFN.instructions
-    ? `<div class="instructions">${esc(DEFN.instructions)}</div>` : "";
+    ? `<div class="instructions">${esc(interp(DEFN.instructions, task))}</div>` : "";
 
   const remaining = totalCount - doneCount;
 
@@ -516,7 +594,7 @@ function renderTask(task) {
         ${instructions}
       </div>
       <div class="card-form" id="card-form">
-        ${buildFormHtml()}
+        ${buildFormHtml(task)}
       </div>
       <div class="action-bar">
         <button class="btn btn-primary" id="btn-submit" onclick="submitResponse()">Submit</button>

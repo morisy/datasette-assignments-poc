@@ -156,3 +156,21 @@ def test_no_inline_onclick_copysharelink():
     html = render_app_html(defn, "assignments_data")
     assert 'onclick="copyShareLink(' not in html, \
         "Inline onclick with URL splice is an XSS vector and must be removed"
+
+
+# ── Task 1: interp machinery tests ───────────────────────────────────────────
+
+def test_interp_machinery_present_tasks_mode_only():
+    html = render_app_html(tasks_defn(), "assignments_data")
+    assert "function interp(" in html
+    form_html = render_app_html(validate_definition(make_defn(slug="tips")),
+                                "assignments_data")
+    assert "function interp(" not in form_html
+
+
+def test_interp_applies_before_escape():
+    # The composition esc(interp(...)) must appear for label rendering,
+    # never interp(esc(...)) — hostile task values stay inert.
+    html = render_app_html(tasks_defn(), "assignments_data")
+    assert "esc(interp(" in html
+    assert "interp(esc(" not in html

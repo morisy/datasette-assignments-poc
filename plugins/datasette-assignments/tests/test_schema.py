@@ -478,3 +478,43 @@ def test_next_task_sql_includes_status_guard():
     q = build_queries(defn, "assignments_data")
     next_task_sql = q["next_task"]["sql"]
     assert "status') = 'open'" in next_task_sql or "status\") = 'open'" in next_task_sql
+
+
+# ── Task 1: Task variable tests ───────────────────────────────────────────────
+
+def test_task_variables_valid_tokens_pass():
+    d = make_defn(slug="vars", mode="tasks", task_columns=["city", "state"],
+                  task_title_column="city",
+                  instructions="Find {{ city }}'s page")
+    d["fields"][0]["label"] = "What is {{city}}'s open government webpage?"
+    validate_definition(d)  # no raise
+
+
+def test_task_variables_unknown_token_lists_columns():
+    d = make_defn(slug="vars", mode="tasks", task_columns=["city", "state"],
+                  task_title_column="city")
+    d["fields"][0]["label"] = "{{town}} portal?"
+    with pytest.raises(DefinitionError) as e:
+        validate_definition(d)
+    msg = "; ".join(e.value.errors)
+    assert "town" in msg and "city" in msg and "state" in msg
+
+
+def test_task_variables_rejected_in_form_mode():
+    d = make_defn(slug="vars")  # form mode
+    d["fields"][0]["help"] = "about {{city}}"
+    with pytest.raises(DefinitionError) as e:
+        validate_definition(d)
+    assert any("task-list" in m for m in e.value.errors)
+
+
+def test_task_variables_checked_in_header_blocks():
+    d = make_defn(slug="vars", mode="tasks", task_columns=["city"],
+                  task_title_column="city",
+                  fields=[{"kind": "header", "text": "About {{nope}}"},
+                          {"kind": "input", "type": "text", "id": "a",
+                           "label": "A", "help": "", "required": True,
+                           "gallery": False, "missing_companion": False,
+                           "options": []}])
+    with pytest.raises(DefinitionError):
+        validate_definition(d)
