@@ -53,13 +53,15 @@
     var header = document.createElement("div");
     header.className = "field-header";
 
-    var title = document.createElement("span");
+    // Type badge
+    var badge = document.createElement("span");
+    badge.className = "field-type-badge";
     if (field.kind === "input") {
-      title.textContent = "Input (" + field.type + ")";
+      badge.textContent = field.type;
     } else {
-      title.textContent = field.kind.charAt(0).toUpperCase() + field.kind.slice(1) + " block";
+      badge.textContent = field.kind;
     }
-    header.appendChild(title);
+    header.appendChild(badge);
 
     // Controls: move up / move down / remove
     var controls = document.createElement("div");
@@ -164,7 +166,7 @@
     var row3 = document.createElement("div");
     row3.className = "field-row";
 
-    function makeCheck(labelText, propName) {
+    function makeCheck(labelText, propName, hint) {
       var lbl = document.createElement("label");
       lbl.className = "inline";
       var cb = document.createElement("input");
@@ -173,14 +175,20 @@
       cb.addEventListener("change", function () { fields[index][propName] = cb.checked; });
       lbl.appendChild(cb);
       lbl.appendChild(document.createTextNode(" " + labelText));
+      if (hint) {
+        var hintSpan = document.createElement("span");
+        hintSpan.className = "field-toggle-hint";
+        hintSpan.textContent = "— " + hint;
+        lbl.appendChild(hintSpan);
+      }
       return lbl;
     }
 
     row3.appendChild(makeCheck("Required", "required"));
-    row3.appendChild(makeCheck("Gallery", "gallery"));
+    row3.appendChild(makeCheck("Gallery", "gallery", "may be made public"));
 
     if (COMPANION_TYPES.indexOf(field.type) !== -1) {
-      row3.appendChild(makeCheck("\"Couldn't find\" companion", "missing_companion"));
+      row3.appendChild(makeCheck("Couldn't find", "missing_companion"));
     }
 
     card.appendChild(row3);
@@ -224,7 +232,7 @@
 
       var addOptBtn = document.createElement("button");
       addOptBtn.type = "button";
-      addOptBtn.textContent = "Add Option";
+      addOptBtn.textContent = "Add option";
       addOptBtn.addEventListener("click", function () {
         if (!fields[index].options) fields[index].options = [];
         fields[index].options.push("");
@@ -252,11 +260,15 @@
 
   function renderFields() {
     var container = document.getElementById("fields-container");
+    var emptyState = document.getElementById("fields-empty");
     if (!container) return;
     container.innerHTML = "";
     fields.forEach(function (f, i) {
       container.appendChild(renderFieldCard(f, i));
     });
+    if (emptyState) {
+      emptyState.style.display = fields.length === 0 ? "" : "none";
+    }
   }
 
   function moveField(index, direction) {
@@ -280,7 +292,8 @@
     var slugInput = document.getElementById("assignment-slug");
     var slug = slugInput ? slugInput.value.trim() : "";
     if (!slug && name) slug = slugify(name);
-    var mode = (document.getElementById("assignment-mode") || {}).value || "form";
+    var modeChecked = document.querySelector('input[name="mode"]:checked');
+    var mode = modeChecked ? modeChecked.value : "form";
     var instructions = (document.getElementById("assignment-instructions") || {}).value || "";
     var rpt = parseInt((document.getElementById("assignment-rpt") || {}).value || "3", 10) || 3;
 
@@ -333,47 +346,30 @@
     });
   }
 
-  // ── Mode toggle ────────────────────────────────────────────────────────────
+  // ── Mode toggle (radio cards) ──────────────────────────────────────────────
 
   function initModeToggle() {
-    var modeEl = document.getElementById("assignment-mode");
-    var csvSection = document.getElementById("tasks-csv-section");
+    var modeInputs = document.querySelectorAll('input[name="mode"]');
+    var tasksSection = document.getElementById("tasks-section");
     var rptLabel = document.getElementById("rpt-label");
-    if (!modeEl) return;
+    if (!modeInputs.length) return;
     function update() {
-      var isTasks = modeEl.value === "tasks";
-      if (csvSection) csvSection.style.display = isTasks ? "" : "none";
+      var modeChecked = document.querySelector('input[name="mode"]:checked');
+      var isTasks = modeChecked && modeChecked.value === "tasks";
+      if (tasksSection) tasksSection.style.display = isTasks ? "" : "none";
       if (rptLabel) rptLabel.style.display = isTasks ? "" : "none";
     }
-    modeEl.addEventListener("change", update);
+    modeInputs.forEach(function (inp) {
+      inp.addEventListener("change", update);
+    });
     update();
   }
 
-  // ── Preview button ─────────────────────────────────────────────────────────
+  // ── Preview (inert in Task 1; Task 3 wires live refresh) ──────────────────
 
   function initPreview() {
-    var btn = document.getElementById("preview-btn");
-    var frame = document.getElementById("preview-frame");
-    var previewUrl = window.__previewUrl || "/-/assignments/preview";
-    if (!btn || !frame) return;
-    btn.addEventListener("click", function () {
-      var defn = buildDefinition();
-      var formData = new FormData();
-      formData.append("definition", JSON.stringify(defn));
-      // Include csrf token
-      var csrfInp = document.querySelector('input[name="csrftoken"]');
-      if (csrfInp) formData.append("csrftoken", csrfInp.value);
-      fetch(previewUrl, { method: "POST", body: formData })
-        .then(function (r) { return r.text(); })
-        .then(function (html) {
-          frame.srcdoc = html;
-          frame.style.display = "";
-        })
-        .catch(function (err) {
-          frame.srcdoc = "<pre>" + String(err) + "</pre>";
-          frame.style.display = "";
-        });
-    });
+    // Preview button removed; live preview wired in Task 3.
+    // The #preview-frame iframe and #preview-note are present in the DOM.
   }
 
   // ── Form submit serialization ──────────────────────────────────────────────
@@ -402,8 +398,14 @@
     if (nameEl && defn.name) nameEl.value = defn.name;
     var slugEl = document.getElementById("assignment-slug");
     if (slugEl && defn.slug) { slugEl.value = defn.slug; slugEl._restored = true; }
-    var modeEl = document.getElementById("assignment-mode");
-    if (modeEl && defn.mode) modeEl.value = defn.mode;
+    // Restore mode via radio cards
+    if (defn.mode) {
+      var modeRadio = document.querySelector('input[name="mode"][value="' + defn.mode + '"]');
+      if (modeRadio) {
+        modeRadio.checked = true;
+        modeRadio.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    }
     var instrEl = document.getElementById("assignment-instructions");
     if (instrEl && defn.instructions) instrEl.value = defn.instructions;
     var rptEl = document.getElementById("assignment-rpt");
@@ -413,8 +415,9 @@
       fields = defn.fields.map(function (f) { return Object.assign({}, f); });
     }
     renderFields();
-    // Trigger mode toggle
-    if (modeEl) modeEl.dispatchEvent(new Event("change"));
+    // Trigger mode toggle UI update
+    var anyMode = document.querySelector('input[name="mode"]:checked');
+    if (anyMode) anyMode.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
   // ── Init ───────────────────────────────────────────────────────────────────
@@ -425,5 +428,7 @@
     initPreview();
     initFormSubmit();
     restoreInitial();
+    // Initial empty-state render
+    renderFields();
   });
 })();

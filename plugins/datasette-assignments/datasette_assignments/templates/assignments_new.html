@@ -17,65 +17,130 @@
   <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
   <input type="hidden" id="definition-json" name="definition" value="{{ definition_json | e }}">
 
-  <div class="assignment-meta">
-    <label>
-      Assignment name
-      <input type="text" id="assignment-name" placeholder="My Assignment">
-    </label>
-    <label>
-      Slug <small>(leave blank to auto-generate)</small>
-      <input type="text" id="assignment-slug" placeholder="my_assignment">
-    </label>
-    <label>
-      Mode
-      <select id="assignment-mode">
-        <option value="form">Form (open-ended)</option>
-        <option value="tasks">Tasks (structured list)</option>
-      </select>
-    </label>
-    <label>
-      Instructions
-      <textarea id="assignment-instructions" rows="3"></textarea>
-    </label>
-    <label id="rpt-label" style="display:none">
-      Responses per task
-      <input type="number" id="assignment-rpt" value="3" min="1">
-    </label>
-  </div>
+  <div class="studio">
 
-  <div id="tasks-csv-section" style="display:none">
-    <h3>Tasks CSV</h3>
-    <p>Paste CSV with headers. First column will be the task title.</p>
-    <textarea name="tasks_csv" id="tasks-csv" rows="8" style="width:100%;font-family:monospace"></textarea>
-  </div>
+    <!-- ── Left column: builder controls ──────────────────────────────── -->
+    <div class="studio-builder">
 
-  <div class="builder-area">
-    <h3>Fields</h3>
-    <div class="palette">
-      <strong>Add field:</strong>
-      <button type="button" data-type="text">Text</button>
-      <button type="button" data-type="textarea">Textarea</button>
-      <button type="button" data-type="number">Number</button>
-      <button type="button" data-type="date">Date</button>
-      <button type="button" data-type="url">URL</button>
-      <button type="button" data-type="email">Email</button>
-      <button type="button" data-type="select">Select</button>
-      <button type="button" data-type="checkbox_group">Checkbox Group</button>
-      <button type="button" data-type="checkbox">Checkbox</button>
-      <button type="button" data-kind="header">Header</button>
-      <button type="button" data-kind="paragraph">Paragraph</button>
-    </div>
-    <div id="fields-container"></div>
-  </div>
+      <!-- Basics -->
+      <section class="builder-section">
+        <h2 class="section-heading">Basics</h2>
 
-  <div class="preview-area">
-    <button type="button" id="preview-btn">Preview</button>
-    <iframe id="preview-frame" sandbox="allow-scripts" style="width:100%;min-height:400px;border:1px solid #ccc;display:none"></iframe>
-  </div>
+        <div class="field-group">
+          <label for="assignment-name">Assignment name</label>
+          <input type="text" id="assignment-name" placeholder="My Assignment">
+        </div>
 
-  <div class="form-actions">
-    <button type="submit">Create Assignment</button>
-  </div>
+        <div class="field-group">
+          <label>Mode</label>
+          <div class="mode-cards">
+            <label class="mode-card">
+              <input type="radio" name="mode" value="form" checked>
+              <span class="mode-card-title">Open form</span>
+              <span class="mode-card-desc">People submit responses; rows accumulate.</span>
+            </label>
+            <label class="mode-card">
+              <input type="radio" name="mode" value="tasks">
+              <span class="mode-card-title">Task list</span>
+              <span class="mode-card-desc">Contributors work through items from a CSV, several answers per item.</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label for="assignment-instructions">Instructions</label>
+          <textarea id="assignment-instructions" rows="3"></textarea>
+        </div>
+
+        <details id="advanced">
+          <summary>Advanced</summary>
+          <div class="advanced-inner">
+            <div class="field-group">
+              <label for="assignment-slug">Slug <small>(leave blank to auto-generate)</small></label>
+              <input type="text" id="assignment-slug" placeholder="my_assignment">
+            </div>
+            <div class="field-group" id="rpt-label" style="display:none">
+              <label for="assignment-rpt">Responses per task</label>
+              <input type="number" id="assignment-rpt" value="3" min="1">
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <!-- Tasks CSV (hidden until tasks mode) -->
+      <section id="tasks-section" style="display:none" class="builder-section">
+        <h2 class="section-heading">Tasks CSV</h2>
+        <p class="section-hint">Paste CSV with headers. First column will be the task title.</p>
+        <textarea name="tasks_csv" id="tasks-csv" rows="8" style="width:100%;font-family:monospace"></textarea>
+
+        <div class="field-group" style="margin-top:0.75rem">
+          <label for="task-title-col">Title column</label>
+          <select id="task-title-col">
+            <option value="">(first column)</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label for="task-image-col">Image column</label>
+          <select id="task-image-col">
+            <option value="">(none)</option>
+          </select>
+        </div>
+      </section>
+
+      <!-- Fields -->
+      <section class="builder-section">
+        <h2 class="section-heading">Questions</h2>
+
+        <!-- Palette -->
+        <div class="palette" aria-label="Add fields">
+          <div class="palette-group">
+            <h4 class="palette-group-label">Questions</h4>
+            <button type="button" data-type="text">+ Text</button>
+            <button type="button" data-type="textarea">+ Long text</button>
+            <button type="button" data-type="number">+ Number</button>
+            <button type="button" data-type="date">+ Date</button>
+            <button type="button" data-type="url">+ URL</button>
+            <button type="button" data-type="email">+ Email</button>
+          </div>
+          <div class="palette-group">
+            <h4 class="palette-group-label">Choices</h4>
+            <button type="button" data-type="select">+ Dropdown</button>
+            <button type="button" data-type="checkbox_group">+ Checkboxes</button>
+            <button type="button" data-type="checkbox">+ Single checkbox</button>
+          </div>
+          <div class="palette-group">
+            <h4 class="palette-group-label">Layout</h4>
+            <button type="button" data-kind="header">+ Header</button>
+            <button type="button" data-kind="paragraph">+ Paragraph</button>
+          </div>
+        </div>
+
+        <!-- Empty state -->
+        <div id="fields-empty" class="fields-empty">
+          No questions yet. Add your first one below.
+        </div>
+
+        <div id="fields-container"></div>
+      </section>
+
+      <!-- Submit -->
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Create assignment</button>
+      </div>
+
+    </div><!-- /.studio-builder -->
+
+    <!-- ── Right column: preview pane ─────────────────────────────────── -->
+    <div class="studio-preview">
+      <div class="preview-eyebrow">What contributors see</div>
+      <div class="preview-card">
+        <div id="preview-note" class="preview-note">Preview loads as you build.</div>
+        <iframe id="preview-frame" sandbox="allow-scripts" style="width:100%;min-height:480px;border:none;display:none"></iframe>
+      </div>
+    </div><!-- /.studio-preview -->
+
+  </div><!-- /.studio -->
+
 </form>
 
 <link rel="stylesheet" href="{{ urls.path('/-/static-plugins/datasette-assignments/builder.css') }}">
