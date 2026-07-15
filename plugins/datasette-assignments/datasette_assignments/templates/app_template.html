@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ defn.name }}</title>
+  <style>
+    :root {
+      --ink: #1a1a2e; --ink-mid: #4a4a6a; --ink-soft: #8888aa;
+      --paper: #f7f7fb; --rule: #dddde8;
+      --accent: #3b5bdb; --accent-dk: #2f4ac5;
+      --ok: #2f9e44; --warn: #e67700; --radius: 6px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 15px; line-height: 1.55;
+      background: var(--paper); color: var(--ink);
+      min-height: 100vh; display: flex; flex-direction: column;
+    }
+    header {
+      border-bottom: 1px solid var(--rule); padding: 14px 20px; background: #fff;
+      display: flex; align-items: baseline; gap: 10px;
+    }
+    .eyebrow {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--accent);
+    }
+    header h1 { font-size: 15px; font-weight: 700; }
+    .progress-wrap { background: #fff; border-bottom: 1px solid var(--rule); padding: 10px 20px; }
+    .progress-label {
+      display: flex; justify-content: space-between;
+      font-size: 12px; color: var(--ink-soft); margin-bottom: 6px;
+    }
+    .progress-label strong { color: var(--ink-mid); }
+    .progress-track { height: 4px; background: var(--rule); border-radius: 2px; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.4s ease; }
+    main { flex: 1; max-width: 680px; width: 100%; margin: 0 auto; padding: 24px 20px 48px; }
+    .card { background: #fff; border: 1px solid var(--rule); border-radius: var(--radius); overflow: hidden; }
+    .card-task { padding: 18px 20px; border-bottom: 1px solid var(--rule); }
+    .task-label {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--ink-soft); margin-bottom: 8px;
+    }
+    .task-title { font-size: 24px; font-weight: 700; line-height: 1.2; }
+    .task-meta { margin-top: 6px; font-size: 14px; color: var(--ink-soft); }
+    .task-img-wrap {
+      margin-top: 12px; background: #ececf3; padding: 12px;
+      display: flex; justify-content: center; border-radius: var(--radius);
+    }
+    .task-img {
+      max-width: 100%; height: auto; display: none;
+      background: #fff; border: 1px solid var(--rule);
+    }
+    .task-img-skeleton {
+      width: 100%; max-width: 400px; aspect-ratio: 4/3;
+      background: linear-gradient(100deg, #e4e4ee 30%, #f0f0f6 50%, #e4e4ee 70%);
+      background-size: 200% 100%; animation: shimmer 1.3s linear infinite;
+      border: 1px solid var(--rule); border-radius: 2px;
+    }
+    @keyframes shimmer { to { background-position: -200% 0; } }
+    .instructions {
+      margin-top: 12px; padding: 10px 14px; background: var(--paper);
+      border-radius: var(--radius); font-size: 13px; color: var(--ink-mid);
+    }
+    .card-form { padding: 18px 20px; display: grid; gap: 20px; }
+    .field-group { display: grid; gap: 6px; }
+    label { font-size: 13px; font-weight: 600; color: var(--ink-mid); }
+    .hint { font-size: 12px; font-weight: 400; color: var(--ink-soft); }
+    .explain { font-size: 13px; color: var(--ink-mid); margin: 0; }
+    input[type="text"], input[type="url"], input[type="email"],
+    input[type="number"], input[type="date"], textarea, select {
+      width: 100%; padding: 9px 12px; border: 1px solid var(--rule); border-radius: var(--radius);
+      font: inherit; font-size: 14px; color: var(--ink); background: #fff;
+      transition: border-color 0.12s, box-shadow 0.12s;
+    }
+    input:focus, textarea:focus, select:focus {
+      outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,91,219,0.12);
+    }
+    input:disabled, textarea:disabled, select:disabled {
+      background: var(--paper); color: var(--ink-soft);
+    }
+    textarea { min-height: 60px; resize: vertical; }
+    .missing-row { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--ink-mid); }
+    .missing-row input { accent-color: var(--accent); width: 15px; height: 15px; }
+    .field-error { font-size: 12px; color: var(--warn); display: none; }
+    .field-group.invalid .field-error { display: block; }
+    .field-group.invalid input[type="url"],
+    .field-group.invalid input[type="email"],
+    .field-group.invalid input[type="text"],
+    .field-group.invalid textarea { border-color: var(--warn); }
+    /* checkbox group */
+    .checkbox-list { display: grid; gap: 6px; }
+    .checkbox-item { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+    .checkbox-item input { accent-color: var(--accent); width: 15px; height: 15px; }
+    /* single checkbox */
+    .single-checkbox { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+    .single-checkbox input { accent-color: var(--accent); width: 15px; height: 15px; }
+    /* scale */
+    .scale { display: flex; gap: 6px; }
+    .scale button {
+      width: 42px; height: 42px; border: 1px solid var(--rule); border-radius: 6px;
+      background: #fff; font: inherit; font-weight: 700; cursor: pointer;
+    }
+    .scale button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    /* choice row */
+    .choice-row { display: flex; gap: 8px; }
+    .choice {
+      flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 10px; border: 1px solid var(--rule); border-radius: 6px;
+      cursor: pointer; font-weight: 600; transition: border-color 0.12s, background 0.12s;
+    }
+    .choice:has(input:checked) {
+      border-color: var(--accent); background: rgba(59,91,219,0.06); color: var(--accent);
+    }
+    .action-bar {
+      padding: 14px 20px; border-top: 1px solid var(--rule);
+      display: flex; gap: 10px; align-items: center;
+    }
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px;
+      border-radius: var(--radius); font: inherit; font-size: 14px; font-weight: 600;
+      cursor: pointer; border: none; transition: background 0.12s;
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-dk); }
+    .btn-skip { background: transparent; color: var(--ink-soft); border: 1px solid var(--rule); }
+    .btn-skip:hover:not(:disabled) { background: var(--rule); }
+    .btn-secondary { background: var(--paper); color: var(--ink-mid); border: 1px solid var(--rule); }
+    .btn-secondary:hover:not(:disabled) { background: var(--rule); }
+    .remaining { margin-left: auto; font-size: 12px; color: var(--ink-soft); }
+    .state { text-align: center; padding: 60px 20px; }
+    .state-icon { font-size: 36px; margin-bottom: 12px; }
+    .state h2 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+    .state p { color: var(--ink-soft); font-size: 14px; }
+    .toast {
+      position: fixed; bottom: 24px; left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--ink); color: #fff; padding: 10px 20px; border-radius: 99px;
+      font-size: 13px; font-weight: 500; opacity: 0;
+      transition: transform 0.25s ease, opacity 0.25s ease; pointer-events: none;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    .toast.ok { background: var(--ok); }
+    .toast.warn { background: var(--warn); }
+    .spinner {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff;
+      border-radius: 50%; animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) {
+      .spinner { animation: none; }
+      .progress-fill { transition: none; }
+      .task-img-skeleton { animation: none; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="eyebrow">Assignment</span>
+  <h1>{{ defn.name }}</h1>
+</header>
+
+<div class="progress-wrap">
+  <div class="progress-label">
+    <span>Progress</span>
+    <span id="progress-text">Loading…</span>
+  </div>
+  <div class="progress-track">
+    <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+  </div>
+</div>
+
+<main id="main">
+  <div class="state"><div class="state-icon">⏳</div><h2>Loading…</h2></div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+{% if preview %}
+<script>
+window.datasette = {
+  storedQuery: function(db, name, params) {
+    if (name.indexOf("progress_") === 0) {
+      {% if defn.mode == "tasks" %}
+      return Promise.resolve({rows: [{total: 5, done: 1, collected: 3, target: {{ defn.responses_per_task }}, status: 'open'}]});
+      {% else %}
+      return Promise.resolve({rows: [{collected: 3, status: 'open'}]});
+      {% endif %}
+    }
+    if (name.indexOf("next_task_") === 0)
+      return Promise.resolve({rows: [{{ sample_task_json }}]});
+    return Promise.resolve({rows: []});
+  }
+};
+</script>
+{% endif %}
+
+<script>
+const DB = {{ db_name | tojson }};
+const DEFN = {{ defn_json | safe }};
+const RESPONSE_COLS = {{ response_cols | tojson }};
+const Q_SUBMIT   = {{ q_submit | tojson }};
+const Q_PROGRESS = {{ q_progress | tojson }};
+{% if q_next_task %}
+const Q_NEXT_TASK = {{ q_next_task | tojson }};
+{% endif %}
+const MODE = DEFN.mode;
+
+let currentTask = null;
+let totalCount = 0;
+let doneCount = 0;
+let collected = 0;
+let target = DEFN.responses_per_task || 3;
+let toastTimer;
+
+const SEEN_KEY = "assignments_seen:" + DEFN.slug + ":" + location.pathname;
+let seen = loadSeen();
+function loadSeen() {
+  // Integer-coerce: these ids are interpolated into SQL, so a tampered or
+  // corrupted sessionStorage value must never reach the query.
+  try {
+    return new Set(JSON.parse(sessionStorage.getItem(SEEN_KEY) || "[]")
+      .filter(Number.isInteger));
+  } catch { return new Set(); }
+}
+function saveSeen() { try { sessionStorage.setItem(SEEN_KEY, JSON.stringify([...seen])); } catch {} }
+function markSeen(id) { seen.add(id); saveSeen(); }
+
+function $(id) { return document.getElementById(id); }
+
+function showToast(msg, type) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.className = "toast show" + (type ? " " + type : "");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = "toast"; }, 2800);
+}
+
+function esc(str) {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+async function loadProgress() {
+  const r = await datasette.storedQuery(DB, Q_PROGRESS, {});
+  const row = r.rows[0];
+  if (!row) return;
+  if (row.status && row.status !== "open") {
+    $("main").innerHTML = `
+      <div class="state">
+        <div class="state-icon">🔒</div>
+        <h2>This assignment is closed</h2>
+        <p>No further contributions are being accepted.</p>
+      </div>`;
+    return;
+  }
+  if (MODE === "tasks") {
+    target     = row.target || 3;
+    totalCount = row.total  || 0;
+    doneCount  = row.done   || 0;
+    collected  = row.collected || 0;
+    const goal = totalCount * target;
+    const pct = goal > 0 ? Math.min(100, Math.round((collected / goal) * 100)) : 0;
+    $("progress-fill").style.width = pct + "%";
+    $("progress-text").innerHTML =
+      `<strong>${doneCount}</strong> of <strong>${totalCount}</strong> tasks complete`;
+  } else {
+    collected = row.collected || 0;
+    $("progress-fill").style.width = "0%";
+    $("progress-text").innerHTML =
+      `<strong>${collected}</strong> contributions so far`;
+  }
+}
+
+// ── Field rendering ──────────────────────────────────────────────────────────
+
+function renderField(f) {
+  if (f.kind === "header") {
+    return `<h3 style="font-size:15px;font-weight:700;color:var(--ink);padding-top:4px">${esc(f.text)}</h3>`;
+  }
+  if (f.kind === "paragraph") {
+    return `<p class="explain">${esc(f.text)}</p>`;
+  }
+  // input kinds
+  const id = f.id;
+  const label = esc(f.label);
+  const hint  = f.help ? `<span class="hint">${esc(f.help)}</span>` : "";
+  const req   = f.required ? ' aria-required="true"' : "";
+
+  let inputHtml = "";
+  if (f.type === "text") {
+    inputHtml = `<input type="text" id="${id}" autocomplete="off"${req}>`;
+  } else if (f.type === "textarea") {
+    inputHtml = `<textarea id="${id}"${req}></textarea>`;
+  } else if (f.type === "number") {
+    inputHtml = `<input type="number" id="${id}"${req}>`;
+  } else if (f.type === "date") {
+    inputHtml = `<input type="date" id="${id}"${req}>`;
+  } else if (f.type === "url") {
+    inputHtml = `<input type="url" id="${id}" placeholder="https://…" autocomplete="off"${req}>`;
+  } else if (f.type === "email") {
+    inputHtml = `<input type="email" id="${id}" placeholder="user@example.com" autocomplete="off"${req}>`;
+  } else if (f.type === "select") {
+    const opts = f.options.map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join("");
+    inputHtml = `<select id="${id}"${req}><option value="">— choose —</option>${opts}</select>`;
+  } else if (f.type === "checkbox_group") {
+    const checks = f.options.map(o =>
+      `<label class="checkbox-item"><input type="checkbox" data-group="${id}" value="${esc(o)}"> ${esc(o)}</label>`
+    ).join("");
+    inputHtml = `<div class="checkbox-list" id="${id}">${checks}</div>`;
+  } else if (f.type === "checkbox") {
+    inputHtml = `<label class="single-checkbox"><input type="checkbox" id="${id}"> ${label}</label>`;
+  }
+
+  let missingHtml = "";
+  if (f.missing_companion) {
+    missingHtml = `
+      <div class="missing-row">
+        <input type="checkbox" id="${id}-missing" onchange="toggleMissing('${id}')">
+        <label for="${id}-missing" style="font-weight:400">I couldn't find this</label>
+      </div>`;
+  }
+
+  const labelRow = f.type === "checkbox"
+    ? ""  // label baked into checkbox html above
+    : `<label for="${id}">${label} ${hint}</label>`;
+
+  return `
+    <div class="field-group" id="group-${id}">
+      ${labelRow}
+      ${inputHtml}
+      ${missingHtml}
+      <div class="field-error" id="${id}-error"></div>
+    </div>`;
+}
+
+function buildFormHtml() {
+  return DEFN.fields.map(renderField).join("");
+}
+
+// ── Validation / reading ─────────────────────────────────────────────────────
+
+function setError(id, msg) {
+  const g = $("group-" + id);
+  if (g) g.classList.add("invalid");
+  const e = $(id + "-error");
+  if (e) e.textContent = msg;
+}
+function clearError(id) {
+  const g = $("group-" + id);
+  if (g) g.classList.remove("invalid");
+}
+
+function readField(f) {
+  clearError(f.id);
+  const id = f.id;
+
+  if (f.type === "checkbox") {
+    const el = $(id);
+    return el ? (el.checked ? 1 : 0) : 0;
+  }
+
+  if (f.type === "checkbox_group") {
+    const checked = [...document.querySelectorAll(`[data-group="${id}"]:checked`)]
+      .map(c => c.value);
+    if (f.required && checked.length === 0) {
+      setError(id, "Please select at least one option.");
+      return null;
+    }
+    return JSON.stringify(checked);
+  }
+
+  const missing = f.missing_companion && $(id + "-missing") && $(id + "-missing").checked;
+  if (missing) return { value: "", missing: 1 };
+
+  let value = "";
+  if (f.type === "textarea") {
+    const el = $(id);
+    value = el ? el.value.trim() : "";
+  } else if (f.type === "select") {
+    const el = $(id);
+    value = el ? el.value : "";
+  } else {
+    const el = $(id);
+    value = el ? el.value.trim() : "";
+  }
+
+  if (f.required && !value) {
+    setError(id, "This field is required.");
+    return null;
+  }
+  if (f.type === "url" && value && !/^https?:\/\/.+\..+/.test(value)) {
+    setError(id, "That doesn't look like a full URL — it should start with http:// or https://");
+    return null;
+  }
+  if (f.type === "email" && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+    setError(id, "That doesn't look like an email address.");
+    return null;
+  }
+  if (f.missing_companion) {
+    return { value, missing: 0 };
+  }
+  return value;
+}
+
+// ── Task card ────────────────────────────────────────────────────────────────
+
+function renderTask(task) {
+  const titleCol = DEFN.task_title_column;
+  const imgCol   = DEFN.task_image_column;
+  const metaCols = (DEFN.task_columns || []).filter(c => c !== titleCol && c !== imgCol);
+
+  const titleHtml = titleCol ? `<div class="task-title">${esc(task[titleCol])}</div>` : "";
+  const metaHtml  = metaCols.length
+    ? `<div class="task-meta">${metaCols.map(c => esc(task[c])).join(" &middot; ")}</div>`
+    : "";
+
+  let imgHtml = "";
+  if (imgCol && task[imgCol]) {
+    const src = esc(task[imgCol]);
+    imgHtml = `
+      <div class="task-img-wrap">
+        <div class="task-img-skeleton" id="img-skeleton"></div>
+        <img class="task-img" id="task-img" alt="" src="${src}"
+             onload="document.getElementById('img-skeleton').style.display='none';this.style.display='block'"
+             onerror="document.getElementById('img-skeleton').style.display='none';this.style.display='none'">
+      </div>`;
+  }
+
+  const instructions = DEFN.instructions
+    ? `<div class="instructions">${esc(DEFN.instructions)}</div>` : "";
+
+  const remaining = totalCount - doneCount;
+
+  $("main").innerHTML = `
+    <div class="card">
+      <div class="card-task">
+        <div class="task-label">Task</div>
+        ${titleHtml}
+        ${metaHtml}
+        ${imgHtml}
+        ${instructions}
+      </div>
+      <div class="card-form" id="card-form">
+        ${buildFormHtml()}
+      </div>
+      <div class="action-bar">
+        <button class="btn btn-primary" id="btn-submit" onclick="submitResponse()">Submit</button>
+        {% if defn.mode == 'tasks' %}<button class="btn btn-skip" onclick="skipTask()">Skip</button>{% endif %}
+        <span class="remaining">${remaining} remaining</span>
+      </div>
+    </div>`;
+}
+
+{% if defn.mode == 'tasks' %}
+// ── Tasks mode ───────────────────────────────────────────────────────────────
+
+async function loadNextTask() {
+  if (!$("main")) return;
+  $("main").innerHTML = `<div class="state"><div class="state-icon">⏳</div><h2>Loading next task…</h2></div>`;
+  const seenStr = [...seen].join(",");
+  const r = await datasette.storedQuery(DB, Q_NEXT_TASK, { seen: seenStr });
+  if (!r.rows.length) {
+    const allDone = doneCount >= totalCount && totalCount > 0;
+    $("main").innerHTML = `
+      <div class="state">
+        <div class="state-icon">${allDone ? "✅" : "🎉"}</div>
+        <h2>${allDone ? "All done!" : "You're all caught up"}</h2>
+        <p>${allDone
+            ? "Every task has collected enough responses. Thank you!"
+            : "You've covered every open task. Check back later or share the link."}</p>
+      </div>`;
+    currentTask = null;
+    return;
+  }
+  currentTask = r.rows[0];
+  renderTask(currentTask);
+}
+{% endif %}
+
+// ── Form mode ────────────────────────────────────────────────────────────────
+
+function renderFormMode() {
+  const instructions = DEFN.instructions
+    ? `<div class="instructions" style="margin-bottom:0">${esc(DEFN.instructions)}</div>` : "";
+  $("main").innerHTML = `
+    <div class="card">
+      ${instructions ? `<div class="card-task">${instructions}</div>` : ""}
+      <div class="card-form" id="card-form">
+        ${buildFormHtml()}
+      </div>
+      <div class="action-bar">
+        <button class="btn btn-primary" id="btn-submit" onclick="submitResponse()">Submit</button>
+      </div>
+    </div>`;
+}
+
+function showThankYou() {
+  $("main").innerHTML = `
+    <div class="state">
+      <div class="state-icon">✅</div>
+      <h2>Thank you!</h2>
+      <p>Your response has been recorded.</p>
+      <button class="btn btn-secondary" style="margin-top:20px" onclick="renderFormMode()">Submit another</button>
+    </div>`;
+}
+
+// ── Submit ───────────────────────────────────────────────────────────────────
+
+async function submitResponse() {
+  if (MODE === "tasks" && !currentTask) return;
+
+  // Collect all response column values
+  const inputFields = DEFN.fields.filter(f => f.kind === "input");
+  const params = {};
+  let valid = true;
+
+  for (const f of inputFields) {
+    const val = readField(f);
+    if (val === null) { valid = false; continue; }
+
+    if (f.missing_companion && typeof val === "object") {
+      params[f.id] = val.value;
+      params[f.id + "_missing"] = val.missing;
+    } else {
+      params[f.id] = val;
+    }
+  }
+
+  if (!valid) {
+    showToast("Please fix the errors above.", "warn");
+    return;
+  }
+
+  // Ensure every response column is present (never undefined)
+  for (const col of RESPONSE_COLS) {
+    if (!(col in params)) params[col] = col.endsWith("_missing") ? 0 : "";
+  }
+
+  if (MODE === "tasks") {
+    params.task_id = currentTask.id;
+  }
+
+  const btn = $("btn-submit");
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Saving…'; }
+
+  try {
+    await datasette.storedQuery(DB, Q_SUBMIT, params);
+    if (MODE === "tasks") {
+      markSeen(currentTask.id);
+      await loadProgress();
+      showToast("Saved — thank you!", "ok");
+      await loadNextTask();
+    } else {
+      await loadProgress();
+      showToast("Saved — thank you!", "ok");
+      showThankYou();
+    }
+  } catch(e) {
+    if (btn) { btn.disabled = false; btn.innerHTML = "Submit"; }
+    showToast("Save failed: " + (e.message || String(e)), "warn");
+  }
+}
+
+{% if defn.mode == 'tasks' %}
+// ── Skip (tasks mode only, client-side) ──────────────────────────────────────
+
+async function skipTask() {
+  if (!currentTask) return;
+  markSeen(currentTask.id);
+  showToast("Skipped");
+  await loadNextTask();
+}
+{% endif %}
+
+// ── Toggle missing companion ─────────────────────────────────────────────────
+
+function toggleMissing(id) {
+  const input = $(id);
+  const missingCb = $(id + "-missing");
+  if (!input || !missingCb) return;
+  input.disabled = missingCb.checked;
+  if (missingCb.checked) { input.value = ""; clearError(id); }
+}
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+
+async function main() {
+  await loadProgress();
+  // If loadProgress found closed status it already rendered — check main content
+  if ($("main").querySelector(".state h2")
+      && $("main").querySelector(".state h2").textContent === "This assignment is closed") return;
+
+  if (MODE === "tasks") {
+    await loadNextTask();
+  } else {
+    renderFormMode();
+  }
+}
+
+main().catch(e => {
+  if ($("main"))
+    $("main").innerHTML = `<div class="state"><div class="state-icon">⚠️</div><h2>Error</h2><p>${esc(e.message || String(e))}</p></div>`;
+});
+</script>
+</body>
+</html>
