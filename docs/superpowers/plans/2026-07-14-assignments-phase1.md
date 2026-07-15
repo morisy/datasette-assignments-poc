@@ -89,128 +89,79 @@ git add -A && git commit -m "chore: pin deps, restructure into apps/ scripts/ te
 
 ---
 
-### Task 2: Top-50 cities CSV + URL checker
+### Task 2: Top-50 cities CSV
+
+> **Amended 2026-07-14 (user decision):** no pre-seeded website URLs — contributors
+> find each city's official site themselves. No URL-checker script.
 
 **Files:**
 - Replace: `cities.csv`
-- Create: `scripts/check_city_urls.py`
 
 **Interfaces:**
-- Produces: `cities.csv` with header `city,state,website` (50 rows) consumed by Task 3's `setup_census.py`.
+- Produces: `cities.csv` with header `city,state` (50 rows) consumed by Task 3's `setup_census.py`.
 
 - [ ] **Step 1: Write cities.csv**
 
-Replace `cities.csv` with (top 50 US cities by population, official sites):
+Replace `cities.csv` with (top 50 US cities by population):
 ```csv
-city,state,website
-New York,NY,https://www.nyc.gov
-Los Angeles,CA,https://lacity.gov
-Chicago,IL,https://www.chicago.gov
-Houston,TX,https://www.houstontx.gov
-Phoenix,AZ,https://www.phoenix.gov
-Philadelphia,PA,https://www.phila.gov
-San Antonio,TX,https://www.sanantonio.gov
-San Diego,CA,https://www.sandiego.gov
-Dallas,TX,https://dallascityhall.com
-Jacksonville,FL,https://www.jacksonville.gov
-Austin,TX,https://www.austintexas.gov
-Fort Worth,TX,https://www.fortworthtexas.gov
-San Jose,CA,https://www.sanjoseca.gov
-Columbus,OH,https://www.columbus.gov
-Charlotte,NC,https://www.charlottenc.gov
-Indianapolis,IN,https://www.indy.gov
-San Francisco,CA,https://www.sf.gov
-Seattle,WA,https://www.seattle.gov
-Denver,CO,https://www.denvergov.org
-Oklahoma City,OK,https://www.okc.gov
-Nashville,TN,https://www.nashville.gov
-Washington,DC,https://dc.gov
-El Paso,TX,https://www.elpasotexas.gov
-Las Vegas,NV,https://www.lasvegasnevada.gov
-Boston,MA,https://www.boston.gov
-Detroit,MI,https://detroitmi.gov
-Portland,OR,https://www.portland.gov
-Louisville,KY,https://louisvilleky.gov
-Memphis,TN,https://www.memphistn.gov
-Baltimore,MD,https://www.baltimorecity.gov
-Milwaukee,WI,https://city.milwaukee.gov
-Albuquerque,NM,https://www.cabq.gov
-Tucson,AZ,https://www.tucsonaz.gov
-Fresno,CA,https://www.fresno.gov
-Sacramento,CA,https://www.cityofsacramento.gov
-Mesa,AZ,https://www.mesaaz.gov
-Kansas City,MO,https://www.kcmo.gov
-Atlanta,GA,https://www.atlantaga.gov
-Colorado Springs,CO,https://coloradosprings.gov
-Omaha,NE,https://www.cityofomaha.org
-Raleigh,NC,https://raleighnc.gov
-Miami,FL,https://www.miami.gov
-Long Beach,CA,https://www.longbeach.gov
-Virginia Beach,VA,https://virginiabeach.gov
-Oakland,CA,https://www.oaklandca.gov
-Minneapolis,MN,https://www.minneapolismn.gov
-Tulsa,OK,https://www.cityoftulsa.org
-Tampa,FL,https://www.tampa.gov
-Arlington,TX,https://www.arlingtontx.gov
-New Orleans,LA,https://nola.gov
+city,state
+New York,NY
+Los Angeles,CA
+Chicago,IL
+Houston,TX
+Phoenix,AZ
+Philadelphia,PA
+San Antonio,TX
+San Diego,CA
+Dallas,TX
+Jacksonville,FL
+Austin,TX
+Fort Worth,TX
+San Jose,CA
+Columbus,OH
+Charlotte,NC
+Indianapolis,IN
+San Francisco,CA
+Seattle,WA
+Denver,CO
+Oklahoma City,OK
+Nashville,TN
+Washington,DC
+El Paso,TX
+Las Vegas,NV
+Boston,MA
+Detroit,MI
+Portland,OR
+Louisville,KY
+Memphis,TN
+Baltimore,MD
+Milwaukee,WI
+Albuquerque,NM
+Tucson,AZ
+Fresno,CA
+Sacramento,CA
+Mesa,AZ
+Kansas City,MO
+Atlanta,GA
+Colorado Springs,CO
+Omaha,NE
+Raleigh,NC
+Miami,FL
+Long Beach,CA
+Virginia Beach,VA
+Oakland,CA
+Minneapolis,MN
+Tulsa,OK
+Tampa,FL
+Arlington,TX
+New Orleans,LA
 ```
 
-- [ ] **Step 2: Write scripts/check_city_urls.py**
-
-```python
-"""Check every website in cities.csv responds (2xx/3xx). Exit 1 listing failures."""
-import csv, os, sys, urllib.request
-
-CSV_PATH = os.path.join(os.path.dirname(__file__), "..", "cities.csv")
-
-def check(url):
-    req = urllib.request.Request(url, method="HEAD",
-        headers={"User-Agent": "Mozilla/5.0 (datasette-assignments URL check)"})
-    try:
-        with urllib.request.urlopen(req, timeout=20) as r:
-            return r.status
-    except Exception as e:
-        # Some city sites reject HEAD; retry with GET before failing.
-        try:
-            req = urllib.request.Request(url,
-                headers={"User-Agent": "Mozilla/5.0 (datasette-assignments URL check)"})
-            with urllib.request.urlopen(req, timeout=20) as r:
-                return r.status
-        except Exception as e2:
-            return f"ERROR: {e2}"
-
-def main():
-    failures = []
-    with open(CSV_PATH, newline="", encoding="utf-8") as f:
-        for row in csv.DictReader(f):
-            status = check(row["website"])
-            ok = isinstance(status, int) and status < 400
-            print(f"{'ok ' if ok else 'FAIL'} {row['city']:20} {row['website']} -> {status}")
-            if not ok:
-                failures.append(row)
-    if failures:
-        print(f"\n{len(failures)} URL(s) need fixing:")
-        for row in failures:
-            print(f"  {row['city']}, {row['state']}: {row['website']}")
-        sys.exit(1)
-    print("\nAll 50 URLs OK")
-
-if __name__ == "__main__":
-    main()
-```
-
-- [ ] **Step 3: Run the checker and fix failures**
+- [ ] **Step 2: Commit**
 
 ```bash
-.venv/bin/python scripts/check_city_urls.py
-```
-Expected: `All 50 URLs OK`. If any FAIL: find the city's real official site (search "<city> official city government website"), update that row in `cities.csv`, rerun until clean. (Some sites block automated requests entirely — if a URL works in a browser but not via script, keep it and note the exception in the run output.)
-
-- [ ] **Step 4: Commit**
-
-```bash
-git add cities.csv scripts/check_city_urls.py
-git commit -m "feat: top-50 cities seed data with verified official sites"
+git add cities.csv
+git commit -m "feat: top-50 cities seed data"
 ```
 
 ---
@@ -221,7 +172,7 @@ git commit -m "feat: top-50 cities seed data with verified official sites"
 - Create: `scripts/setup_census.py`, `tests/test_setup_census.py`
 
 **Interfaces:**
-- Produces: `build(db_path, csv_path, responses_per_task=3)` function and CLI (`python scripts/setup_census.py`) creating `census.db` with tables `tasks(id, city, state, website, status, created_at)`, `responses(id, task_id, records_page_url, records_page_missing, records_email, records_email_missing, data_portal_url, data_portal_missing, notes, submitted_at)`, `config(key, value)`, and trigger `mark_task_done`. Consumed by Tasks 4, 6, 7.
+- Produces: `build(db_path, csv_path, responses_per_task=3)` function and CLI (`python scripts/setup_census.py`) creating `census.db` with tables `tasks(id, city, state, status, created_at)`, `responses(id, task_id, records_page_url, records_page_missing, records_email, records_email_missing, data_portal_url, data_portal_missing, notes, submitted_at)`, `config(key, value)`, and trigger `mark_task_done`. Consumed by Tasks 4, 6, 7.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -235,14 +186,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 from setup_census import build
 
-CITIES = [("Boston", "MA", "https://www.boston.gov"),
-          ("Chicago", "IL", "https://www.chicago.gov")]
+CITIES = [("Boston", "MA"), ("Chicago", "IL")]
 
 def make_csv(tmp_path):
     p = tmp_path / "cities.csv"
     with open(p, "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["city", "state", "website"])
+        w.writerow(["city", "state"])
         w.writerows(CITIES)
     return p
 
@@ -252,9 +202,9 @@ def test_build_creates_tasks(tmp_path):
     conn = sqlite3.connect(db)
     assert conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0] == 2
     row = conn.execute(
-        "SELECT city, state, website, status FROM tasks ORDER BY id LIMIT 1"
+        "SELECT city, state, status FROM tasks ORDER BY id LIMIT 1"
     ).fetchone()
-    assert row == ("Boston", "MA", "https://www.boston.gov", "pending")
+    assert row == ("Boston", "MA", "pending")
     assert conn.execute(
         "SELECT value FROM config WHERE key='responses_per_task'"
     ).fetchone()[0] == "3"
@@ -326,7 +276,6 @@ CREATE TABLE IF NOT EXISTS tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     city TEXT NOT NULL,
     state TEXT NOT NULL,
-    website TEXT NOT NULL,           -- official city site, contributor's starting point
     status TEXT NOT NULL DEFAULT 'pending',   -- 'pending' | 'done'
     created_at TEXT DEFAULT (datetime('now'))
 );
@@ -375,10 +324,10 @@ def build(db_path, csv_path, responses_per_task=RESPONSES_PER_TASK):
             print(f"tasks table already has {already} rows; skipping city load.")
         else:
             with open(csv_path, newline="", encoding="utf-8") as f:
-                rows = [(r["city"].strip(), r["state"].strip(), r["website"].strip())
+                rows = [(r["city"].strip(), r["state"].strip())
                         for r in csv.DictReader(f)]
             conn.executemany(
-                "INSERT INTO tasks (city, state, website) VALUES (?, ?, ?)", rows)
+                "INSERT INTO tasks (city, state) VALUES (?, ?)", rows)
             print(f"Loaded {len(rows)} city tasks.")
         conn.commit()
     finally:
@@ -627,7 +576,7 @@ async function loadNextTask() {
   $("main").innerHTML = `<div class="state"><div class="state-icon">⏳</div><h2>Loading next city…</h2></div>`;
   const excludeClause = seen.size ? `AND t.id NOT IN (${[...seen].join(",")})` : "";
   const r = await datasette.query(DB,
-    `SELECT t.id, t.city, t.state, t.website
+    `SELECT t.id, t.city, t.state
      FROM tasks t
      WHERE (SELECT COUNT(*) FROM responses r WHERE r.task_id = t.id)
            < (SELECT CAST(value AS INTEGER) FROM config WHERE key = 'responses_per_task')
@@ -672,12 +621,10 @@ function renderTask(task) {
       <div class="card-task">
         <div class="task-label">Your city</div>
         <div class="city-name">${esc(task.city)}, ${esc(task.state)}</div>
-        <div class="city-meta">
-          Start at the official site:
-          <a href="${esc(task.website)}" target="_blank" rel="noopener">${esc(task.website.replace(/^https?:\/\/(www\.)?/, ""))} ↗</a>
-        </div>
         <div class="instructions">
-          Look around ${esc(task.city)}'s official website for the three items below.
+          Find ${esc(task.city)}'s official city website (search the web for
+          "${esc(task.city)} ${esc(task.state)} official city site" — it usually ends in .gov),
+          then look for the three items below.
           Tips: search the site for "public records", "FOIA", "open records", or "open data".
           If you genuinely can't find one after a few minutes, check its "couldn't find" box — that's
           useful data too.
@@ -1708,7 +1655,7 @@ git commit -m "docs: README, demo screenshot"
 
 ## Self-Review Notes
 
-- **Spec coverage:** NOTES.md → Task 9; tutorial (two-track + styled HTML examples) → Task 10; demo app with three flag-able fields + progress bar → Tasks 3–6; Fly.io with persistence + admin auth → Tasks 7–8; Document Review kept as second app → Tasks 1, 5; top-50 cities pre-seeded with official sites → Task 2; smoke test incl. restart persistence → Task 8. Phase 2 (WYSIWYG plugin) intentionally absent.
+- **Spec coverage:** NOTES.md → Task 9; tutorial (two-track + styled HTML examples) → Task 10; demo app with three flag-able fields + progress bar → Tasks 3–6; Fly.io with persistence + admin auth → Tasks 7–8; Document Review kept as second app → Tasks 1, 5; top-50 cities seed list (no website URLs per 2026-07-14 amendment) → Task 2; smoke test incl. restart persistence → Task 8. Phase 2 (WYSIWYG plugin) intentionally absent.
 - **Type consistency:** stored-query parameter names identical across `apps/census.html` (Task 4), `datasette.yaml` (Task 6), and test INSERTs (Task 3): `task_id, records_page_url, records_page_missing, records_email, records_email_missing, data_portal_url, data_portal_missing, notes`. `sync_app(db_path, definition) -> app_id` matches between Task 5 tests and implementation.
 - **Known judgment calls:** `sync_apps.py` writes datasette-apps tables directly (schema verified against the live internal.db for the pinned 0.1a3); acceptable because versions are pinned. City URLs are best-effort and Task 2 Step 3 verifies each one.
 ```

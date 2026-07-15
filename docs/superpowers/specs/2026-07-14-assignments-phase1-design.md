@@ -23,7 +23,7 @@ Turn the working local prototype (a MuckRock Assignments-style crowdsourcing too
 
 ## Demo assignment: "City Public Records Census"
 
-Each task is one of the **top 50 US cities by population**, pre-seeded with the city's official website URL (so contributors aren't googling blind). A contributor is shown one city and asked to find, on the city's official site:
+Each task is one of the **top 50 US cities by population**. (Amended 2026-07-14: no pre-seeded official-website URLs — contributors locate the city's site themselves; the app's instructions tell them how.) A contributor is shown one city and asked to find, on the city's official site:
 
 1. **Public records request page** — URL, or flag "couldn't find one"
 2. **Public records email address** — email, or flag "couldn't find one"
@@ -37,17 +37,17 @@ The existing **Document Review** app stays on the instance as a second example �
 
 ### Schema
 
-`tasks`: `id`, `city`, `state`, `website` (official .gov URL), `status` ('pending'|'done'), `created_at`.
+`tasks`: `id`, `city`, `state`, `status` ('pending'|'done'), `created_at`.
 
 `responses`: `id`, `task_id → tasks.id`, `records_page_url`, `records_page_missing` (0/1), `records_email`, `records_email_missing` (0/1), `data_portal_url`, `data_portal_missing` (0/1), `notes`, `submitted_at`.
 
 `config`: `key`, `value` — holds `responses_per_task` (default 3). The app, the task-selection SQL, and the `mark_task_done` trigger all read this one value.
 
-Built by `setup_census.py` from `cities.csv` (expanded to 50 rows: `city,state,website`). Idempotent: re-running never duplicates tasks or wipes responses.
+Built by `setup_census.py` from `cities.csv` (expanded to 50 rows: `city,state`). Idempotent: re-running never duplicates tasks or wipes responses.
 
 ### App (`app.html`, adapted from prototype)
 
-- City card: city name, state, link to official website (opens new tab).
+- City card: city name and state, with instructions for finding the city's official site.
 - Three field groups, each: text input + "couldn't find one" checkbox that disables/clears the input.
 - Notes textarea, Submit, Skip, progress bar, toast feedback, "all done / all caught up" end states.
 - Task selection SQL: random task with response count < `responses_per_task`, excluding sessionStorage-seen ids.
