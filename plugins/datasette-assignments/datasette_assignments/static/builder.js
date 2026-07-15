@@ -37,9 +37,18 @@
     var previewUrl = window.__previewUrl;
     if (!previewUrl) return;
 
+    var defnObj = buildDefinition();
+    // Pristine form: nothing typed and no fields yet — keep the friendly
+    // placeholder note instead of surfacing a validation error.
+    if (!defnObj.name && !defnObj.fields.length) {
+      var pristineNote = document.getElementById("preview-note");
+      if (pristineNote) pristineNote.textContent = "Preview loads as you build.";
+      return;
+    }
+
     var csrfInput = document.querySelector('#assignment-form input[name="csrftoken"]');
     var csrftoken = csrfInput ? csrfInput.value : "";
-    var definition = JSON.stringify(buildDefinition());
+    var definition = JSON.stringify(defnObj);
 
     var counter = ++_previewRequestCounter;
     var body = "csrftoken=" + encodeURIComponent(csrftoken) +
