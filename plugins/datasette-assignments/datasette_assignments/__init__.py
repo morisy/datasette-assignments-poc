@@ -1,4 +1,5 @@
 from datasette import hookimpl
+from datasette.permissions import PermissionSQL
 from . import registry as _registry
 
 PLUGIN_NAME = "datasette-assignments"
@@ -15,3 +16,72 @@ def startup(datasette):
     async def inner():
         await _registry.ensure_table(datasette)
     return inner
+
+
+@hookimpl
+def permission_resources_sql(datasette, actor, action):
+    actor_id = actor.get("id") if actor else None
+    data_db = get_data_db_name(datasette)
+
+    # Only handle view-table and execute-sql; return None for everything else.
+    if action not in ("view-table", "execute-sql"):
+        return None
+
+    # Root can do anything — skip our deny rules.
+    if actor_id == "root":
+        return None
+
+    if action == "execute-sql":
+        # Deny execute-sql on the data DB for all non-root actors.
+        sql = """
+        SELECT :da_db AS parent,
+               NULL   AS child,
+               0      AS allow,
+               'assignments: execute-sql denied on data DB for non-root' AS reason
+        """
+        return PermissionSQL(
+            source=PLUGIN_NAME,
+            sql=sql,
+            params={"da_db": data_db},
+        )
+
+    # action == "view-table"
+    # Deny view-table on every a_<slug>_responses table whose owner is NOT
+    # the current actor.  The query runs against the internal DB where
+    # assignments_registry lives.
+    if actor_id is not None:
+        # Authenticated non-owner: deny all response tables not owned by this actor.
+        sql = """
+        SELECT :da_db                              AS parent,
+               'a_' || slug || '_responses'        AS child,
+               0                                  AS allow,
+               'assignments: responses table is private' AS reason
+        FROM assignments_registry
+        WHERE owner_id != :da_actor_id
+        UNION ALL
+        SELECT :da_db                              AS parent,
+               'a_' || slug || '_responses'        AS child,
+               1                                  AS allow,
+               'assignments: responses table visible to owner' AS reason
+        FROM assignments_registry
+        WHERE owner_id = :da_actor_id
+        """
+        return PermissionSQL(
+            source=PLUGIN_NAME,
+            sql=sql,
+            params={"da_db": data_db, "da_actor_id": actor_id},
+        )
+    else:
+        # Anonymous actor: deny all response tables.
+        sql = """
+        SELECT :da_db                              AS parent,
+               'a_' || slug || '_responses'        AS child,
+               0                                  AS allow,
+               'assignments: responses table is private' AS reason
+        FROM assignments_registry
+        """
+        return PermissionSQL(
+            source=PLUGIN_NAME,
+            sql=sql,
+            params={"da_db": data_db},
+        )

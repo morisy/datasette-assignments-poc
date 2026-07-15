@@ -50,7 +50,11 @@ async def create_assignment(datasette, defn, actor):
                 # and per-table write authorization — acceptable only because
                 # this SQL is plugin-generated and immutable, never user-supplied.
                 # It is what enables anonymous submissions.
-                is_trusted=q["is_write"],
+                # All plugin-generated queries are trusted: they are
+                # immutable, schema-derived SQL that bypass the execute-sql
+                # permission check.  This is what lets the progress / next_task
+                # read queries run even when execute-sql is denied on the data DB.
+                is_trusted=True,
             )
             created_queries.append(q["name"])
         app_id = await _create_app(
