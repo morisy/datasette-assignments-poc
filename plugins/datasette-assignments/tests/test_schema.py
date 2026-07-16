@@ -4,6 +4,7 @@ from datasette.app import Datasette
 from datasette_assignments.schema import (
     DefinitionError, sanitize_identifier, slugify, validate_definition,
     build_ddl, build_queries, drop_ddl, response_columns, merge_editable,
+    extract_image_origins,
 )
 import sqlite3
 
@@ -518,3 +519,38 @@ def test_task_variables_checked_in_header_blocks():
                            "options": []}])
     with pytest.raises(DefinitionError):
         validate_definition(d)
+
+
+# ── Task 1: extract_image_origins tests ──────────────────────────────────────
+
+def test_extract_image_origins():
+    defn = validate_definition(make_defn(slug="pix", mode="tasks",
+        task_columns=["city", "photo"], task_title_column="city",
+        task_image_column="photo"))
+    rows = [{"city": "A", "photo": "https://CDN.muckrock.com/a.jpg"},
+            {"city": "B", "photo": "https://upload.wikimedia.org/b.png"},
+            {"city": "C", "photo": "not a url"}]
+    assert extract_image_origins(defn, rows) == {
+        "https://cdn.muckrock.com", "https://upload.wikimedia.org"}
+    with pytest.raises(DefinitionError):
+        extract_image_origins(defn, [{"city": "D", "photo": "http://x.org/i.jpg"}])
+    no_img = validate_definition(make_defn(slug="noimg", mode="tasks",
+        task_columns=["city"], task_title_column="city"))
+    assert extract_image_origins(no_img, [{"city": "E"}]) == set()
+
+
+def test_extract_image_origins_empty_rows():
+    defn = validate_definition(make_defn(slug="pix2", mode="tasks",
+        task_columns=["city", "photo"], task_title_column="city",
+        task_image_column="photo"))
+    assert extract_image_origins(defn, []) == set()
+
+
+def test_extract_image_origins_skips_non_url():
+    defn = validate_definition(make_defn(slug="pix3", mode="tasks",
+        task_columns=["city", "photo"], task_title_column="city",
+        task_image_column="photo"))
+    rows = [{"city": "A", "photo": "not-a-url"},
+            {"city": "B", "photo": ""},
+            {"city": "C", "photo": "ftp://example.com/img.jpg"}]
+    assert extract_image_origins(defn, rows) == set()

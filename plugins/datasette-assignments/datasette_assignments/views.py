@@ -10,7 +10,7 @@ from . import get_data_db_name
 from . import registry
 from .creator import CreationError, create_assignment, destroy_assignment, insert_tasks, seed_config
 from .render import render_app_html
-from .schema import DefinitionError, merge_editable, sanitize_identifier, slugify, validate_definition
+from .schema import DefinitionError, extract_image_origins, merge_editable, sanitize_identifier, slugify, validate_definition
 
 
 def _actor_id(request):
@@ -519,6 +519,52 @@ async def assignments_add_tasks(datasette, request):
         row_count += 1
 
     if task_rows:
+        # ── Origin check for new rows ─────────────────────────────────────────
+        new_origins = extract_image_origins(defn, task_rows)
+        if new_origins:
+            from datasette_apps.registry import Registry as AppsRegistry
+            apps_reg = AppsRegistry(datasette)
+            app_id = row.get("app_id", "")
+            existing_csp = set(await apps_reg.get_csp_origins(app_id)) if app_id else set()
+            truly_new = new_origins - existing_csp
+            if truly_new:
+                # Normalize approved list from plugin config
+                from urllib.parse import urlsplit as _urlsplit
+                def _norm(o):
+                    o = o.strip()
+                    if "://" not in o:
+                        o = f"https://{o}"
+                    p = _urlsplit(o)
+                    return f"https://{p.netloc.lower()}"
+                approved_raw = (
+                    (datasette.plugin_config("datasette-apps") or {})
+                    .get("allowed_csp_origins") or []
+                )
+                approved_normalized = {_norm(o) for o in approved_raw}
+                unapproved = truly_new - approved_normalized
+                if unapproved:
+                    approved_list = (
+                        ", ".join(sorted(approved_normalized))
+                        if approved_normalized else "(none)"
+                    )
+                    return Response.text(
+                        f"Images from {', '.join(sorted(unapproved))} can't be shown "
+                        f"until your administrator adds it to allowed_csp_origins in "
+                        f"the Datasette config. Currently approved: {approved_list}.",
+                        status=400,
+                    )
+                # All truly new origins are approved — merge into app's CSP
+                merged_csp = sorted(existing_csp | truly_new)
+                version = await apps_reg.get_current_version(app_id)
+                if version and app_id:
+                    await apps_reg.update_stored_app(
+                        app_id,
+                        version["name"],
+                        version["description"],
+                        version["html"],
+                        actor_id=_actor_id(request),
+                        csp_origins=merged_csp,
+                    )
         await insert_tasks(datasette, defn, task_rows)
 
     return Response.redirect(f"/-/assignments/{slug}?added={len(task_rows)}")

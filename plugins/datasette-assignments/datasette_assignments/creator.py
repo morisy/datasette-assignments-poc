@@ -6,7 +6,7 @@ from datasette_apps.registry import Registry as AppsRegistry
 
 from . import registry
 from .render import render_app_html
-from .schema import build_ddl, build_queries, drop_ddl
+from .schema import build_ddl, build_queries, drop_ddl, extract_image_origins
 from . import get_data_db_name
 
 
@@ -14,7 +14,8 @@ class CreationError(Exception):
     pass
 
 
-async def _create_app(datasette, defn, actor_id, db_name, query_names):
+async def _create_app(datasette, defn, actor_id, db_name, query_names,
+                      csp_origins=None):
     apps = AppsRegistry(datasette)
     app = await apps.create_stored_app(
         actor_id,
@@ -24,6 +25,7 @@ async def _create_app(datasette, defn, actor_id, db_name, query_names):
         is_private=False,
         sql_databases=[],
         stored_queries=[f"{db_name}/{q}" for q in query_names],
+        csp_origins=list(csp_origins) if csp_origins else [],
     )
     # create_stored_app returns the app dict from get_app() — normalize to id string
     return app["id"] if isinstance(app, dict) else app
@@ -35,6 +37,34 @@ async def create_assignment(datasette, defn, actor, task_rows=None):
     slug = defn["slug"]
     if await registry.get(datasette, slug):
         raise CreationError(f"An assignment with slug {slug!r} already exists")
+
+    # ── Origin check BEFORE any artifact creation ─────────────────────────────
+    image_origins = extract_image_origins(defn, task_rows or [])
+    approved_origins = set(
+        (datasette.plugin_config("datasette-apps") or {}).get(
+            "allowed_csp_origins") or []
+    )
+    # Normalize approved origins the same way (scheme://host lowercased)
+    from urllib.parse import urlsplit as _urlsplit
+    def _norm(o):
+        o = o.strip()
+        if "://" not in o:
+            o = f"https://{o}"
+        p = _urlsplit(o)
+        return f"https://{p.netloc.lower()}"
+    approved_normalized = {_norm(o) for o in approved_origins}
+    unapproved = image_origins - approved_normalized
+    if unapproved:
+        approved_list = (
+            ", ".join(sorted(approved_normalized)) if approved_normalized else "(none)"
+        )
+        raise CreationError(
+            f"Images from {', '.join(sorted(unapproved))} can't be shown until your "
+            f"administrator adds it to allowed_csp_origins in the Datasette config. "
+            f"Currently approved: {approved_list}."
+        )
+    csp_origins = image_origins  # approved set (possibly empty)
+
     created_queries, app_id = [], None
     try:
         for stmt in build_ddl(defn):
@@ -57,7 +87,8 @@ async def create_assignment(datasette, defn, actor, task_rows=None):
             created_queries.append(q["name"])
         app_id = await _create_app(
             datasette, defn, (actor or {}).get("id") or "root",
-            db_name, [q["name"] for q in queries.values()])
+            db_name, [q["name"] for q in queries.values()],
+            csp_origins=csp_origins)
         await registry.create(datasette, defn, (actor or {}).get("id") or "root",
                               app_id)
         return await registry.get(datasette, slug)

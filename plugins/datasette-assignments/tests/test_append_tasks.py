@@ -5,6 +5,7 @@ Covers:
 - Header mismatch → 400 text naming the offending column
 - Non-owner/anon → 403
 - Form-mode assignment → 400 ("not a task-list assignment")
+- Image origin enforcement on add-tasks (Task 1)
 """
 import json
 import sqlite3
@@ -13,6 +14,7 @@ from datasette.app import Datasette
 
 from datasette_assignments import creator
 from datasette_assignments.schema import validate_definition
+from datasette_apps.registry import Registry as AppsRegistry
 
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
@@ -130,3 +132,87 @@ async def test_add_tasks_form_mode_400(tmp_path):
     )
     assert r.status_code == 400
     assert "task" in r.text.lower()
+
+
+# ── Task 1: image origin enforcement on add-tasks ─────────────────────────────
+
+def image_tasks_defn():
+    """tasks-mode definition with task_image_column='photo'."""
+    return validate_definition(make_defn(
+        slug="mayors", mode="tasks",
+        task_columns=["city", "photo"], task_title_column="city",
+        task_image_column="photo",
+        fields=[
+            {"kind": "input", "type": "text", "id": "answer", "label": "Answer",
+             "help": "", "required": True, "gallery": False,
+             "missing_companion": False, "options": []},
+        ]))
+
+
+async def build_image_tasks_instance(tmp_path, allowed_origins=None):
+    """Create a Datasette with an image-tasks assignment, optionally with allowed_csp_origins."""
+    db_path = str(tmp_path / "assignments_data.db")
+    sqlite3.connect(db_path).close()
+    if allowed_origins is not None:
+        ds = Datasette([db_path], config={"plugins": {"datasette-apps": {"allowed_csp_origins": allowed_origins}}})
+    else:
+        ds = Datasette([db_path])
+    await ds.invoke_startup()
+    defn = image_tasks_defn()
+    await creator.create_assignment(
+        ds, defn, {"id": "alice"},
+        task_rows=[{"city": "Springfield", "photo": "https://cdn.muckrock.com/seed.jpg"}],
+    )
+    return ds
+
+
+@pytest.mark.asyncio
+async def test_append_merges_new_approved_origin(tmp_path):
+    """Appending rows with a new approved origin merges the origin into the app's CSP."""
+    ds = await build_image_tasks_instance(
+        tmp_path,
+        allowed_origins=["https://cdn.muckrock.com", "https://upload.wikimedia.org"],
+    )
+    # Initial CSP should already have cdn.muckrock.com (from seed row at create time)
+    from datasette_assignments import registry as ds_registry
+    reg = await ds_registry.get(ds, "mayors")
+    app_id = reg["app_id"]
+    apps = AppsRegistry(ds)
+    initial_csp = set(await apps.get_csp_origins(app_id))
+    assert "https://cdn.muckrock.com" in initial_csp
+
+    # Now append rows with a new origin: wikimedia
+    csv_text = "city,photo\nBoston,https://upload.wikimedia.org/wiki/img.jpg"
+    r = await signed_in_post(ds, "/-/assignments/mayors/add-tasks", {"tasks_csv": csv_text})
+    assert r.status_code == 302
+
+    # Wikimedia origin should now be in CSP
+    updated_csp = set(await apps.get_csp_origins(app_id))
+    assert "https://upload.wikimedia.org" in updated_csp
+    assert "https://cdn.muckrock.com" in updated_csp  # original preserved
+
+    # Row was inserted
+    db = ds.get_database("assignments_data")
+    count = (await db.execute("SELECT COUNT(*) FROM a_mayors_tasks")).first()[0]
+    assert count == 2  # 1 seed + 1 new
+
+
+@pytest.mark.asyncio
+async def test_append_rejects_unapproved_origin(tmp_path):
+    """Appending rows with an unapproved origin → 400, no rows inserted."""
+    ds = await build_image_tasks_instance(
+        tmp_path,
+        allowed_origins=["https://cdn.muckrock.com"],
+    )
+    db = ds.get_database("assignments_data")
+    count_before = (await db.execute("SELECT COUNT(*) FROM a_mayors_tasks")).first()[0]
+
+    csv_text = "city,photo\nEvil,https://evil.example/img.jpg"
+    r = await signed_in_post(ds, "/-/assignments/mayors/add-tasks", {"tasks_csv": csv_text})
+    assert r.status_code == 400
+    assert "evil.example" in r.text
+    assert "allowed_csp_origins" in r.text
+
+    # No rows inserted
+    count_after = (await db.execute("SELECT COUNT(*) FROM a_mayors_tasks")).first()[0]
+    assert count_after == count_before

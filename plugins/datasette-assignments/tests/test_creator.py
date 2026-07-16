@@ -2,6 +2,7 @@ import pytest
 from datasette.app import Datasette
 from datasette_assignments import creator, registry
 from datasette_assignments.schema import validate_definition
+from datasette_apps.registry import Registry as AppsRegistry
 import sys
 import os
 
@@ -10,9 +11,11 @@ from test_schema import make_defn, tasks_defn
 import sqlite3, tempfile, os
 
 
-def make_ds(tmp_path):
+def make_ds(tmp_path, plugin_config=None):
     db_path = str(tmp_path / "assignments_data.db")
     sqlite3.connect(db_path).close()
+    if plugin_config:
+        return Datasette([db_path], config={"plugins": plugin_config})
     return Datasette([db_path])
 
 
@@ -76,6 +79,66 @@ async def test_create_rolls_back_when_task_insert_fails(tmp_path, monkeypatch):
     assert await ds.get_query("assignments_data", "next_task_mayors") is None
     assert await ds.get_query("assignments_data", "progress_mayors") is None
     assert await registry.get(ds, "mayors") is None
+
+
+def image_tasks_defn():
+    """A tasks-mode definition with task_image_column='photo'."""
+    return validate_definition(make_defn(
+        slug="photos", mode="tasks",
+        task_columns=["city", "photo"], task_title_column="city",
+        task_image_column="photo",
+        fields=[
+            {"kind": "input", "type": "text", "id": "answer", "label": "Answer",
+             "help": "", "required": True, "gallery": False,
+             "missing_companion": False, "options": []},
+        ]))
+
+
+@pytest.mark.asyncio
+async def test_create_opts_in_approved_image_origin(tmp_path):
+    """Creating with approved image origin → csp_origins set on the app."""
+    ds = make_ds(tmp_path, plugin_config={
+        "datasette-apps": {"allowed_csp_origins": ["https://cdn.muckrock.com"]}
+    })
+    await ds.invoke_startup()
+    defn = image_tasks_defn()
+    task_rows = [
+        {"city": "Boston", "photo": "https://cdn.muckrock.com/img/a.jpg"},
+        {"city": "Chicago", "photo": "https://cdn.muckrock.com/img/b.jpg"},
+    ]
+    row = await creator.create_assignment(ds, defn, {"id": "alice"},
+                                          task_rows=task_rows)
+    assert row["slug"] == "photos"
+    app_id = row["app_id"]
+    apps = AppsRegistry(ds)
+    csp = await apps.get_csp_origins(app_id)
+    assert "https://cdn.muckrock.com" in csp
+
+
+@pytest.mark.asyncio
+async def test_create_rejects_unapproved_image_origin(tmp_path):
+    """Creating with unapproved image origin → CreationError, no artifacts remain."""
+    ds = make_ds(tmp_path, plugin_config={
+        "datasette-apps": {"allowed_csp_origins": ["https://cdn.muckrock.com"]}
+    })
+    await ds.invoke_startup()
+    defn = image_tasks_defn()
+    task_rows = [
+        {"city": "Evil", "photo": "https://evil.example/img.jpg"},
+    ]
+    with pytest.raises(creator.CreationError) as exc_info:
+        await creator.create_assignment(ds, defn, {"id": "alice"},
+                                        task_rows=task_rows)
+    msg = str(exc_info.value)
+    assert "evil.example" in msg
+    assert "allowed_csp_origins" in msg
+    assert "cdn.muckrock.com" in msg
+    # No artifacts remain
+    db = ds.get_database("assignments_data")
+    leftover = (await db.execute(
+        "SELECT name FROM sqlite_master WHERE name LIKE 'a_photos%'")).rows
+    assert leftover == []
+    assert await registry.get(ds, "photos") is None
 
 
 @pytest.mark.asyncio

@@ -4,6 +4,7 @@ Slugs, field ids, and CSV headers all become SQL identifiers. The rule is
 whitelist-only: ^[a-z][a-z0-9_]{0,39}$ — we never escape or quote identifiers.
 """
 import re
+from urllib.parse import urlsplit
 
 SLUG_RE = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
 TOKEN_RE = re.compile(r"\{\{\s*([a-z][a-z0-9_]*)\s*\}\}")
@@ -350,6 +351,37 @@ def merge_editable(stored, posted):
 
     merged["fields"] = merged_fields
     return merged
+
+
+def extract_image_origins(defn, rows):
+    """Return a set of normalized https origins from task_image_column values.
+
+    Skips values that don't start with http:// or https://.
+    Raises DefinitionError (accumulated) if any http:// origins are found.
+    Returns empty set when there is no task_image_column.
+    """
+    image_col = defn.get("task_image_column")
+    if not image_col:
+        return set()
+    errors = []
+    origins = set()
+    for row in rows:
+        val = row.get(image_col) or ""
+        val = val.strip()
+        if not val.startswith("http://") and not val.startswith("https://"):
+            continue
+        parsed = urlsplit(val)
+        if parsed.scheme == "http":
+            errors.append(
+                f"image hosts must use https (got {parsed.scheme}://{parsed.netloc})"
+            )
+            continue
+        # https origin
+        netloc = parsed.netloc.lower()
+        origins.add(f"https://{netloc}")
+    if errors:
+        raise DefinitionError(errors)
+    return origins
 
 
 def build_queries(defn, db_name):
