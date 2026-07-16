@@ -52,3 +52,5 @@ plugins:
   datasette-apps:
     allowed_csp_origins:
       - https://s3.documentcloud.org
+      - https://cdn.muckrock.com
+      - https://upload.wikimedia.org

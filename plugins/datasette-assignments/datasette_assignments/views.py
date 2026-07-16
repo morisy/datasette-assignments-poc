@@ -155,6 +155,9 @@ async def assignments_new(datasette, request):
                 errors = [str(exc)]
                 definition_json = json.dumps(raw_defn, indent=2)
 
+    allowed_csp_origins = (
+        (datasette.plugin_config("datasette-apps") or {}).get("allowed_csp_origins") or []
+    )
     return Response.html(
         await datasette.render_template(
             "assignments_new.html",
@@ -162,6 +165,7 @@ async def assignments_new(datasette, request):
                 "errors": errors,
                 "definition_json": definition_json,
                 "db_name": db_name,
+                "allowed_csp_origins": allowed_csp_origins,
             },
             request=request,
         )
@@ -254,6 +258,9 @@ async def assignments_edit(datasette, request):
     else:
         definition_json = json.dumps(stored_defn, indent=2)
 
+    allowed_csp_origins = (
+        (datasette.plugin_config("datasette-apps") or {}).get("allowed_csp_origins") or []
+    )
     return Response.html(
         await datasette.render_template(
             "assignments_new.html",
@@ -265,6 +272,7 @@ async def assignments_edit(datasette, request):
                 "slug": slug,
                 "hand_edit_warning": hand_edit_warning,
                 "confirm_overwrite_needed": confirm_overwrite_needed,
+                "allowed_csp_origins": allowed_csp_origins,
             },
             request=request,
         )

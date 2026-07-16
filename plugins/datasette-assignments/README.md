@@ -74,6 +74,16 @@ The builder detects your CSV columns and shows them as chips below the textarea,
 
 ---
 
+## Images in tasks
+
+In tasks mode, you can display an image alongside each task by pointing the **Image column** picker at a CSV column that contains image URLs. The builder studio shows per-origin status chips below the Image column picker as soon as you select the column — a green chip ("✓ origin") means the image host is already on the administrator's allow-list, while a yellow chip ("⚠ origin — needs admin approval") means images from that host will be blocked at create time.
+
+**Two-layer approval model.** Showing images requires approval at two levels: (1) the instance administrator must add the image host to `allowed_csp_origins` in `datasette.yaml`; and (2) the assignment itself opts in to those specific origins at create time. The builder chips show the first layer. If you try to create an assignment whose image column contains URLs from a host that is not on the allow-list, you will see a `CreationError` naming the unapproved origin and the currently approved list — nothing is created, no database tables are touched. Ask your administrator to add the origin and try again.
+
+**Demo image hosts.** The reference `datasette.yaml` in this repository pre-approves three image hosts for demonstration purposes: `https://s3.documentcloud.org` (DocumentCloud document images), `https://cdn.muckrock.com` (MuckRock media), and `https://upload.wikimedia.org` (Wikimedia Commons file images — note: commons page URLs are not image URLs; use the direct `/wikipedia/commons/…` path).
+
+---
+
 ## Routes
 
 | Route | Method | What it does |

@@ -456,6 +456,97 @@
     renderFields();
   }
 
+  // ── Image origin chips ─────────────────────────────────────────────────────
+
+  function extractOriginsFromCsvColumn(csvText, columnName) {
+    if (!csvText || !columnName) return [];
+    var lines = csvText.trim().split("\n");
+    if (lines.length < 2) return [];
+    var headers = lines[0].split(",").map(sanitizeColumnNameInner);
+    var colIndex = headers.indexOf(columnName);
+    if (colIndex === -1) return [];
+
+    var originsSet = {};
+    for (var i = 1; i < lines.length; i++) {
+      var cells = lines[i].split(",");
+      var val = (cells[colIndex] || "").trim();
+      if (/^https?:\/\//i.test(val)) {
+        try {
+          var url = new URL(val);
+          var origin = url.protocol.toLowerCase() + "//" + url.hostname.toLowerCase();
+          originsSet[origin] = true;
+        } catch (e) {
+          // not a valid URL, skip
+        }
+      }
+    }
+    return Object.keys(originsSet);
+  }
+
+  function sanitizeColumnNameInner(h) {
+    return h.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40);
+  }
+
+  function renderImageOriginChips() {
+    var statusDiv = document.getElementById("image-origins-status");
+    if (!statusDiv) return;
+
+    var imageSel = document.getElementById("task-image-col");
+    var csvEl = document.getElementById("tasks-csv");
+    var imageCol = imageSel ? imageSel.value : "";
+
+    if (!imageCol || !csvEl || !csvEl.value.trim()) {
+      statusDiv.innerHTML = "";
+      return;
+    }
+
+    var origins = extractOriginsFromCsvColumn(csvEl.value, imageCol);
+    if (origins.length === 0) {
+      statusDiv.innerHTML = "";
+      return;
+    }
+
+    var allowedRaw = window.__allowedCspOrigins || [];
+    // Normalize allowed origins: scheme://host lowercased
+    var allowed = {};
+    allowedRaw.forEach(function (o) {
+      var norm = o.trim().toLowerCase();
+      if (norm.indexOf("://") === -1) norm = "https://" + norm;
+      try {
+        var p = new URL(norm);
+        allowed[p.protocol + "//" + p.hostname] = true;
+      } catch (e) { /* skip */ }
+    });
+
+    statusDiv.innerHTML = "";
+    origins.forEach(function (origin) {
+      var chip = document.createElement("span");
+      chip.style.display = "inline-block";
+      chip.style.marginRight = "0.5em";
+      chip.style.marginBottom = "0.25em";
+      chip.style.padding = "0.2em 0.5em";
+      chip.style.borderRadius = "3px";
+      chip.style.fontSize = "0.85em";
+      chip.style.fontFamily = "monospace";
+
+      if (/^http:\/\//i.test(origin)) {
+        chip.style.background = "#fff3cd";
+        chip.style.border = "1px solid #ffc107";
+        chip.textContent = "⚠ " + origin + " — must be https";
+      } else if (allowed[origin]) {
+        chip.style.background = "#d4edda";
+        chip.style.border = "1px solid #28a745";
+        chip.textContent = "✓ " + origin;
+      } else {
+        chip.style.background = "#fff3cd";
+        chip.style.border = "1px solid #ffc107";
+        chip.textContent = "⚠ " + origin + " — needs admin approval";
+      }
+
+      statusDiv.appendChild(chip);
+    });
+  }
+
   // ── CSV column pickers ────────────────────────────────────────────────────
 
   function sanitizeColumnName(h) {
@@ -557,12 +648,14 @@
           if (csvDetected) {
             csvDetected.innerHTML = "";
           }
+          renderImageOriginChips();
           notifyChanged();
           return;
         }
         var firstLine = val.split("\n")[0];
         var columns = firstLine.split(",").map(sanitizeColumnName).filter(function (c) { return c.length > 0; });
         populateColumnSelects(columns);
+        renderImageOriginChips();
 
         // Render detected columns into #csv-detected
         if (csvDetected && columns.length > 0) {
@@ -597,7 +690,10 @@
       titleSel.addEventListener("change", function () { notifyChanged(); });
     }
     if (imageSel) {
-      imageSel.addEventListener("change", function () { notifyChanged(); });
+      imageSel.addEventListener("change", function () {
+        renderImageOriginChips();
+        notifyChanged();
+      });
     }
   }
 

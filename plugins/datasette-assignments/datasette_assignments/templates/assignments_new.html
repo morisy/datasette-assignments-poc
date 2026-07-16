@@ -115,6 +115,7 @@
           <select id="task-image-col">
             <option value="">(none)</option>
           </select>
+          <div id="image-origins-status" class="section-hint"></div>
         </div>
       </section>
       {% endif %}
@@ -190,5 +191,6 @@
 window.__previewUrl = {{ urls.path('/-/assignments/preview') | tojson }};
 window.__initialDefinition = {{ definition_json | tojson if definition_json else 'null' }};
 window.__editMode = {{ 'true' if edit_mode else 'false' }};
+window.__allowedCspOrigins = {{ allowed_csp_origins | tojson }};
 </script>
 {% endblock %}

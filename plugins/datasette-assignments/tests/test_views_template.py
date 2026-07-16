@@ -39,6 +39,8 @@ async def test_builder_studio_structure(tmp_path):
         'id="task-title-col"', 'id="task-image-col"',
         'id="tasks-csv-file"', 'type="file"',
         'id="csv-detected"',
+        'id="image-origins-status"',
+        '__allowedCspOrigins',
     ]:
         assert needle in html, needle
     assert 'id="preview-btn"' not in html  # manual preview button removed
